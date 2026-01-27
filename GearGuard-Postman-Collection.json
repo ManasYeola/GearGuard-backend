@@ -1,0 +1,706 @@
+{
+  "info": {
+    "name": "GearGuard API",
+    "_postman_id": "gearguard-api-collection",
+    "description": "Complete API collection for GearGuard - The Ultimate Maintenance Tracker",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Teams",
+      "item": [
+        {
+          "name": "Get All Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/teams",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teams"]
+            }
+          }
+        },
+        {
+          "name": "Get Single Team",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/teams/{{teamId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teams", "{{teamId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Team",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mechanics Team\",\n  \"description\": \"Handles mechanical equipment repairs\",\n  \"specialization\": \"Mechanics\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teams",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teams"]
+            }
+          }
+        },
+        {
+          "name": "Update Team",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated team description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teams/{{teamId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teams", "{{teamId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Team",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/teams/{{teamId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teams", "{{teamId}}"]
+            }
+          }
+        },
+        {
+          "name": "Add Member to Team",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teams/{{teamId}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teams", "{{teamId}}", "members"]
+            }
+          }
+        },
+        {
+          "name": "Remove Member from Team",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teams/{{teamId}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teams", "{{teamId}}", "members"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            }
+          }
+        },
+        {
+          "name": "Get Users by Role",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users?role=Technician",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "Technician"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"role\": \"Technician\",\n  \"team\": \"{{teamId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"Manager\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{userId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Equipment",
+      "item": [
+        {
+          "name": "Get All Equipment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/equipment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "equipment"]
+            }
+          }
+        },
+        {
+          "name": "Get Equipment by Department",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/equipment?department=Production",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "equipment"],
+              "query": [
+                {
+                  "key": "department",
+                  "value": "Production"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Equipment by Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/equipment?category=Machinery",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "equipment"],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "Machinery"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Grouped Equipment (by Department)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/equipment/grouped?groupBy=department",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "equipment", "grouped"],
+              "query": [
+                {
+                  "key": "groupBy",
+                  "value": "department"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Grouped Equipment (by Employee)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/equipment/grouped?groupBy=employee",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "equipment", "grouped"],
+              "query": [
+                {
+                  "key": "groupBy",
+                  "value": "employee"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single Equipment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/equipment/{{equipmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "equipment", "{{equipmentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Equipment Maintenance Requests (Smart Button)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/equipment/{{equipmentId}}/maintenance-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "equipment", "{{equipmentId}}", "maintenance-requests"]
+            }
+          }
+        },
+        {
+          "name": "Create Equipment (Department Owned)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CNC Machine 01\",\n  \"serialNumber\": \"CNC-001\",\n  \"category\": \"Machinery\",\n  \"purchaseDate\": \"2023-01-15\",\n  \"warrantyExpiry\": \"2026-01-15\",\n  \"location\": \"Production Floor A\",\n  \"ownershipType\": \"Department\",\n  \"department\": \"Production\",\n  \"maintenanceTeam\": \"{{teamId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/equipment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "equipment"]
+            }
+          }
+        },
+        {
+          "name": "Create Equipment (Employee Owned)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Laptop - Dell XPS\",\n  \"serialNumber\": \"DELLXPS-123\",\n  \"category\": \"Computers\",\n  \"purchaseDate\": \"2024-03-10\",\n  \"warrantyExpiry\": \"2027-03-10\",\n  \"location\": \"Office 2nd Floor\",\n  \"ownershipType\": \"Employee\",\n  \"assignedEmployee\": {\n    \"name\": \"Alice Brown\",\n    \"email\": \"alice@example.com\"\n  },\n  \"maintenanceTeam\": \"{{teamId}}\",\n  \"defaultTechnician\": \"{{userId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/equipment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "equipment"]
+            }
+          }
+        },
+        {
+          "name": "Update Equipment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Under Maintenance\",\n  \"notes\": \"Currently being serviced\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/equipment/{{equipmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "equipment", "{{equipmentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Equipment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/equipment/{{equipmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "equipment", "{{equipmentId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maintenance Requests",
+      "item": [
+        {
+          "name": "Get All Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests"]
+            }
+          }
+        },
+        {
+          "name": "Get Requests by Stage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests?stage=New",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests"],
+              "query": [
+                {
+                  "key": "stage",
+                  "value": "New"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Kanban View",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests/kanban",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests", "kanban"]
+            }
+          }
+        },
+        {
+          "name": "Get Calendar View",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests/calendar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests", "calendar"]
+            }
+          }
+        },
+        {
+          "name": "Get Calendar View (Date Range)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests/calendar?startDate=2026-01-01&endDate=2026-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests", "calendar"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests/statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests", "statistics"]
+            }
+          }
+        },
+        {
+          "name": "Get Single Request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests/{{requestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests", "{{requestId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Request (Corrective) - Auto-fill Demo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Oil leak in CNC Machine\",\n  \"description\": \"Machine is leaking oil from hydraulic system\",\n  \"requestType\": \"Corrective\",\n  \"equipment\": \"{{equipmentId}}\",\n  \"priority\": \"High\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests"]
+            }
+          }
+        },
+        {
+          "name": "Create Request (Preventive)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Quarterly maintenance checkup\",\n  \"description\": \"Scheduled preventive maintenance\",\n  \"requestType\": \"Preventive\",\n  \"equipment\": \"{{equipmentId}}\",\n  \"scheduledDate\": \"2026-03-01\",\n  \"priority\": \"Medium\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests"]
+            }
+          }
+        },
+        {
+          "name": "Update Request",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration\": 3.5,\n  \"notes\": \"Replaced hydraulic pump and tested system\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests/{{requestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests", "{{requestId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Stage to In Progress",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stage\": \"In Progress\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests/{{requestId}}/stage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests", "{{requestId}}", "stage"]
+            }
+          }
+        },
+        {
+          "name": "Update Stage to Repaired",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stage\": \"Repaired\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests/{{requestId}}/stage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests", "{{requestId}}", "stage"]
+            }
+          }
+        },
+        {
+          "name": "Update Stage to Scrap (Triggers Equipment Update)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stage\": \"Scrap\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests/{{requestId}}/stage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests", "{{requestId}}", "stage"]
+            }
+          }
+        },
+        {
+          "name": "Delete Request",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance-requests/{{requestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance-requests", "{{requestId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Root - API Info",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/",
+          "host": ["{{baseUrl}}"],
+          "path": [""]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "teamId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "equipmentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "requestId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
