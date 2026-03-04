@@ -1,18 +1,27 @@
-const User = require('../models/User');
+const { User, Team } = require('../models');
+const { Op } = require('sequelize');
 
 // Get all users
 exports.getAllUsers = async (req, res) => {
   try {
     const { role, team } = req.query;
     
-    let filter = { isActive: true };
+    let where = { isActive: true };
     
-    if (role) filter.role = role;
-    if (team) filter.team = team;
+    if (role) where.role = role;
+    if (team) where.teamId = team;
     
-    const users = await User.find(filter)
-      .populate('team', 'name specialization')
-      .sort({ name: 1 });
+    const users = await User.findAll({
+      where,
+      include: [
+        {
+          model: Team,
+          as: 'team',
+          attributes: ['id', 'name', 'specialization']
+        }
+      ],
+      order: [['name', 'ASC']]
+    });
     
     res.status(200).json({
       success: true,
@@ -31,8 +40,15 @@ exports.getAllUsers = async (req, res) => {
 // Get single user
 exports.getUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
-      .populate('team', 'name specialization');
+    const user = await User.findByPk(req.params.id, {
+      include: [
+        {
+          model: Team,
+          as: 'team',
+          attributes: ['id', 'name', 'specialization']
+        }
+      ]
+    });
     
     if (!user) {
       return res.status(404).json({
@@ -59,12 +75,20 @@ exports.createUser = async (req, res) => {
   try {
     const user = await User.create(req.body);
     
-    await user.populate('team', 'name specialization');
+    const userWithTeam = await User.findByPk(user.id, {
+      include: [
+        {
+          model: Team,
+          as: 'team',
+          attributes: ['id', 'name', 'specialization']
+        }
+      ]
+    });
     
     res.status(201).json({
       success: true,
       message: 'User created successfully',
-      data: user
+      data: userWithTeam
     });
   } catch (error) {
     res.status(400).json({
@@ -78,11 +102,7 @@ exports.createUser = async (req, res) => {
 // Update user
 exports.updateUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).populate('team', 'name specialization');
+    const user = await User.findByPk(req.params.id);
     
     if (!user) {
       return res.status(404).json({
@@ -91,10 +111,22 @@ exports.updateUser = async (req, res) => {
       });
     }
     
+    await user.update(req.body);
+    
+    const updatedUser = await User.findByPk(user.id, {
+      include: [
+        {
+          model: Team,
+          as: 'team',
+          attributes: ['id', 'name', 'specialization']
+        }
+      ]
+    });
+    
     res.status(200).json({
       success: true,
       message: 'User updated successfully',
-      data: user
+      data: updatedUser
     });
   } catch (error) {
     res.status(400).json({
@@ -108,11 +140,7 @@ exports.updateUser = async (req, res) => {
 // Delete user (soft delete)
 exports.deleteUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const user = await User.findByPk(req.params.id);
     
     if (!user) {
       return res.status(404).json({
@@ -120,6 +148,8 @@ exports.deleteUser = async (req, res) => {
         message: 'User not found'
       });
     }
+    
+    await user.update({ isActive: false });
     
     res.status(200).json({
       success: true,

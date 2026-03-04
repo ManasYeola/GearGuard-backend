@@ -1,76 +1,136 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const equipmentSchema = new mongoose.Schema({
+const Equipment = sequelize.define('Equipment', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   name: {
-    type: String,
-    required: [true, 'Equipment name is required'],
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: {
+        msg: 'Equipment name is required'
+      }
+    }
   },
   serialNumber: {
-    type: String,
-    required: [true, 'Serial number is required'],
+    type: DataTypes.STRING,
+    allowNull: false,
     unique: true,
-    trim: true
+    validate: {
+      notEmpty: {
+        msg: 'Serial number is required'
+      }
+    }
   },
   category: {
-    type: String,
-    required: [true, 'Category is required'],
-    enum: ['Machinery', 'Vehicles', 'Computers', 'Tools', 'HVAC', 'Other'],
-    default: 'Other'
+    type: DataTypes.ENUM('Machinery', 'Vehicles', 'Computers', 'Tools', 'HVAC', 'Other'),
+    allowNull: false,
+    defaultValue: 'Other',
+    validate: {
+      notEmpty: {
+        msg: 'Category is required'
+      }
+    }
   },
   purchaseDate: {
-    type: Date,
-    required: [true, 'Purchase date is required']
+    type: DataTypes.DATE,
+    allowNull: false,
+    validate: {
+      notNull: {
+        msg: 'Purchase date is required'
+      }
+    }
   },
   warrantyExpiry: {
-    type: Date
+    type: DataTypes.DATE,
+    allowNull: true
   },
   location: {
-    type: String,
-    required: [true, 'Location is required'],
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: {
+        msg: 'Location is required'
+      }
+    }
   },
-  // Ownership - Department or Employee
   ownershipType: {
-    type: String,
-    enum: ['Department', 'Employee'],
-    required: true
+    type: DataTypes.ENUM('Department', 'Employee'),
+    allowNull: false
   },
   department: {
-    type: String,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: true
   },
-  assignedEmployee: {
-    name: String,
-    email: String
+  assignedEmployeeName: {
+    type: DataTypes.STRING,
+    allowNull: true
   },
-  // Default maintenance team
-  maintenanceTeam: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Team',
-    required: [true, 'Maintenance team is required']
+  assignedEmployeeEmail: {
+    type: DataTypes.STRING,
+    allowNull: true
   },
-  defaultTechnician: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+  maintenanceTeamId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Teams',
+      key: 'id'
+    },
+    validate: {
+      notNull: {
+        msg: 'Maintenance team is required'
+      }
+    }
+  },
+  defaultTechnicianId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   },
   status: {
-    type: String,
-    enum: ['Active', 'Under Maintenance', 'Scrapped', 'Retired'],
-    default: 'Active'
+    type: DataTypes.ENUM('Active', 'Under Maintenance', 'Scrapped', 'Retired'),
+    defaultValue: 'Active'
   },
   notes: {
-    type: String
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   isActive: {
-    type: Boolean,
-    default: true
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   }
 }, {
-  timestamps: true
+  tableName: 'Equipment',
+  timestamps: true,
+  indexes: [
+    {
+      fields: ['name', 'serialNumber', 'category']
+    }
+  ],
+  hooks: {
+    beforeSave: (equipment) => {
+      if (equipment.name) {
+        equipment.name = equipment.name.trim();
+      }
+      if (equipment.serialNumber) {
+        equipment.serialNumber = equipment.serialNumber.trim();
+      }
+      if (equipment.location) {
+        equipment.location = equipment.location.trim();
+      }
+      if (equipment.department) {
+        equipment.department = equipment.department.trim();
+      }
+    }
+  }
 });
 
-// Index for searching
-equipmentSchema.index({ name: 1, serialNumber: 1, category: 1 });
-
-module.exports = mongoose.model('Equipment', equipmentSchema);
+module.exports = Equipment;

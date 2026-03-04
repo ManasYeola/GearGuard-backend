@@ -1,33 +1,22 @@
-const mongoose = require('mongoose');
 require('dotenv').config();
-
-const Team = require('./models/Team');
-const User = require('./models/User');
-const Equipment = require('./models/Equipment');
-const MaintenanceRequest = require('./models/MaintenanceRequest');
-
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log('MongoDB Connected');
-  } catch (error) {
-    console.error('Error:', error.message);
-    process.exit(1);
-  }
-};
+const { sequelize, connectDB } = require('./config/database');
+const { Team, User, Equipment, MaintenanceRequest } = require('./models');
 
 const seedData = async () => {
   try {
+    // Connect to database
+    await connectDB();
+    
     // Clear existing data
-    await Team.deleteMany({});
-    await User.deleteMany({});
-    await Equipment.deleteMany({});
-    await MaintenanceRequest.deleteMany({});
+    await MaintenanceRequest.destroy({ where: {}, truncate: true, cascade: true });
+    await Equipment.destroy({ where: {}, truncate: true, cascade: true });
+    await User.destroy({ where: {}, truncate: true, cascade: true });
+    await Team.destroy({ where: {}, truncate: true, cascade: true });
     
     console.log('✅ Cleared existing data');
     
     // Create Teams
-    const teams = await Team.create([
+    const teams = await Team.bulkCreate([
       {
         name: 'Mechanics Team',
         description: 'Handles mechanical equipment repairs',
@@ -48,50 +37,37 @@ const seedData = async () => {
     console.log('✅ Created teams');
     
     // Create Users
-    const users = await User.create([
+    const users = await User.bulkCreate([
       {
         name: 'John Doe',
         email: 'john@example.com',
         role: 'Manager',
-        team: teams[0]._id
+        teamId: teams[0].id
       },
       {
         name: 'Jane Smith',
         email: 'jane@example.com',
         role: 'Technician',
-        team: teams[0]._id
+        teamId: teams[0].id
       },
       {
         name: 'Mike Johnson',
         email: 'mike@example.com',
         role: 'Technician',
-        team: teams[1]._id
+        teamId: teams[1].id
       },
       {
         name: 'Sarah Williams',
         email: 'sarah@example.com',
         role: 'Technician',
-        team: teams[2]._id
+        teamId: teams[2].id
       }
     ]);
     
     console.log('✅ Created users');
     
-    // Update teams with members
-    await Team.findByIdAndUpdate(teams[0]._id, {
-      members: [users[0]._id, users[1]._id]
-    });
-    await Team.findByIdAndUpdate(teams[1]._id, {
-      members: [users[2]._id]
-    });
-    await Team.findByIdAndUpdate(teams[2]._id, {
-      members: [users[3]._id]
-    });
-    
-    console.log('✅ Updated team members');
-    
     // Create Equipment
-    const equipment = await Equipment.create([
+    const equipment = await Equipment.bulkCreate([
       {
         name: 'CNC Machine 01',
         serialNumber: 'CNC-001',
@@ -101,8 +77,8 @@ const seedData = async () => {
         location: 'Production Floor A',
         ownershipType: 'Department',
         department: 'Production',
-        maintenanceTeam: teams[0]._id,
-        defaultTechnician: users[1]._id,
+        maintenanceTeamId: teams[0].id,
+        defaultTechnicianId: users[1].id,
         status: 'Active'
       },
       {
@@ -113,12 +89,10 @@ const seedData = async () => {
         warrantyExpiry: new Date('2027-03-10'),
         location: 'Office 2nd Floor',
         ownershipType: 'Employee',
-        assignedEmployee: {
-          name: 'Alice Brown',
-          email: 'alice@example.com'
-        },
-        maintenanceTeam: teams[1]._id,
-        defaultTechnician: users[2]._id,
+        assignedEmployeeName: 'Alice Brown',
+        assignedEmployeeEmail: 'alice@example.com',
+        maintenanceTeamId: teams[1].id,
+        defaultTechnicianId: users[2].id,
         status: 'Active'
       },
       {
@@ -130,8 +104,8 @@ const seedData = async () => {
         location: 'Warehouse',
         ownershipType: 'Department',
         department: 'Logistics',
-        maintenanceTeam: teams[0]._id,
-        defaultTechnician: users[1]._id,
+        maintenanceTeamId: teams[0].id,
+        defaultTechnicianId: users[1].id,
         status: 'Active'
       },
       {
@@ -142,8 +116,8 @@ const seedData = async () => {
         location: 'Power Room',
         ownershipType: 'Department',
         department: 'Facilities',
-        maintenanceTeam: teams[2]._id,
-        defaultTechnician: users[3]._id,
+        maintenanceTeamId: teams[2].id,
+        defaultTechnicianId: users[3].id,
         status: 'Active'
       }
     ]);
@@ -151,58 +125,62 @@ const seedData = async () => {
     console.log('✅ Created equipment');
     
     // Create Maintenance Requests
-    await MaintenanceRequest.create([
+    await MaintenanceRequest.bulkCreate([
       {
+        requestNumber: 'REQ-00001',
         subject: 'Oil leak in CNC Machine',
         description: 'Machine is leaking oil from the hydraulic system',
         requestType: 'Corrective',
-        equipment: equipment[0]._id,
+        equipmentId: equipment[0].id,
         equipmentCategory: equipment[0].category,
-        maintenanceTeam: equipment[0].maintenanceTeam,
-        assignedTo: users[1]._id,
+        maintenanceTeamId: equipment[0].maintenanceTeamId,
+        assignedToId: users[1].id,
         stage: 'New',
         priority: 'High',
-        createdBy: users[0]._id
+        createdById: users[0].id
       },
       {
+        requestNumber: 'REQ-00002',
         subject: 'Laptop running slow',
         description: 'System performance degraded, needs diagnosis',
         requestType: 'Corrective',
-        equipment: equipment[1]._id,
+        equipmentId: equipment[1].id,
         equipmentCategory: equipment[1].category,
-        maintenanceTeam: equipment[1].maintenanceTeam,
-        assignedTo: users[2]._id,
+        maintenanceTeamId: equipment[1].maintenanceTeamId,
+        assignedToId: users[2].id,
         stage: 'In Progress',
         priority: 'Medium',
-        createdBy: users[0]._id
+        createdById: users[0].id
       },
       {
+        requestNumber: 'REQ-00003',
         subject: 'Routine forklift maintenance',
         description: 'Scheduled quarterly maintenance check',
         requestType: 'Preventive',
-        equipment: equipment[2]._id,
+        equipmentId: equipment[2].id,
         equipmentCategory: equipment[2].category,
-        maintenanceTeam: equipment[2].maintenanceTeam,
-        assignedTo: users[1]._id,
+        maintenanceTeamId: equipment[2].maintenanceTeamId,
+        assignedToId: users[1].id,
         scheduledDate: new Date('2026-02-15'),
         stage: 'New',
         priority: 'Low',
-        createdBy: users[0]._id
+        createdById: users[0].id
       },
       {
+        requestNumber: 'REQ-00004',
         subject: 'Generator maintenance completed',
         description: 'Monthly preventive maintenance completed successfully',
         requestType: 'Preventive',
-        equipment: equipment[3]._id,
+        equipmentId: equipment[3].id,
         equipmentCategory: equipment[3].category,
-        maintenanceTeam: equipment[3].maintenanceTeam,
-        assignedTo: users[3]._id,
+        maintenanceTeamId: equipment[3].maintenanceTeamId,
+        assignedToId: users[3].id,
         scheduledDate: new Date('2026-01-20'),
         completedDate: new Date('2026-01-20'),
         duration: 2.5,
         stage: 'Repaired',
         priority: 'Medium',
-        createdBy: users[0]._id
+        createdById: users[0].id
       }
     ]);
     
@@ -223,4 +201,4 @@ const seedData = async () => {
   }
 };
 
-connectDB().then(() => seedData());
+seedData();

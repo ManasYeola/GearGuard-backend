@@ -1,9 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const connectDB = require('./config/database');
+const { connectDB } = require('./config/database');
+
+// Import models to establish associations
+require('./models');
 
 // Import routes
+const authRoutes = require('./routes/authRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const equipmentRoutes = require('./routes/equipmentRoutes');
 const maintenanceRequestRoutes = require('./routes/maintenanceRequestRoutes');
@@ -12,7 +16,7 @@ const userRoutes = require('./routes/userRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB
+// Connect to MySQL
 connectDB();
 
 // Middleware
@@ -32,6 +36,7 @@ app.get('/', (req, res) => {
     message: 'GearGuard API - The Ultimate Maintenance Tracker',
     version: '1.0.0',
     endpoints: {
+      auth: '/api/auth',
       teams: '/api/teams',
       equipment: '/api/equipment',
       maintenanceRequests: '/api/maintenance-requests',
@@ -40,6 +45,7 @@ app.get('/', (req, res) => {
   });
 });
 
+app.use('/api/auth', authRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/maintenance-requests', maintenanceRequestRoutes);

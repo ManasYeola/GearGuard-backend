@@ -1,40 +1,47 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const teamSchema = new mongoose.Schema({
+const Team = sequelize.define('Team', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   name: {
-    type: String,
-    required: [true, 'Team name is required'],
+    type: DataTypes.STRING,
+    allowNull: false,
     unique: true,
-    trim: true
+    validate: {
+      notEmpty: {
+        msg: 'Team name is required'
+      }
+    }
   },
   description: {
-    type: String,
-    trim: true
+    type: DataTypes.TEXT,
+    allowNull: true
   },
-  members: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
   specialization: {
-    type: String,
-    enum: ['Mechanics', 'Electricians', 'IT Support', 'HVAC', 'Plumbing', 'General'],
-    default: 'General'
+    type: DataTypes.ENUM('Mechanics', 'Electricians', 'IT Support', 'HVAC', 'Plumbing', 'General'),
+    defaultValue: 'General'
   },
   isActive: {
-    type: Boolean,
-    default: true
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   }
 }, {
-  timestamps: true
+  tableName: 'Teams',
+  timestamps: true,
+  hooks: {
+    beforeSave: (team) => {
+      if (team.name) {
+        team.name = team.name.trim();
+      }
+      if (team.description) {
+        team.description = team.description.trim();
+      }
+    }
+  }
 });
 
-// Virtual for team member count
-teamSchema.virtual('memberCount').get(function() {
-  return this.members ? this.members.length : 0;
-});
-
-// Ensure virtuals are included in JSON
-teamSchema.set('toJSON', { virtuals: true });
-teamSchema.set('toObject', { virtuals: true });
-
-module.exports = mongoose.model('Team', teamSchema);
+module.exports = Team;

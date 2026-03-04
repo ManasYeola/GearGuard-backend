@@ -1,11 +1,20 @@
-const Team = require('../models/Team');
+const { Team, User } = require('../models');
+const { Op } = require('sequelize');
 
 // Get all teams
 exports.getAllTeams = async (req, res) => {
   try {
-    const teams = await Team.find({ isActive: true })
-      .populate('members', 'name email role avatar')
-      .sort({ name: 1 });
+    const teams = await Team.findAll({
+      where: { isActive: true },
+      include: [
+        {
+          model: User,
+          as: 'members',
+          attributes: ['id', 'name', 'email', 'role', 'avatar']
+        }
+      ],
+      order: [['name', 'ASC']]
+    });
     
     res.status(200).json({
       success: true,
@@ -24,8 +33,15 @@ exports.getAllTeams = async (req, res) => {
 // Get single team
 exports.getTeam = async (req, res) => {
   try {
-    const team = await Team.findById(req.params.id)
-      .populate('members', 'name email role avatar');
+    const team = await Team.findByPk(req.params.id, {
+      include: [
+        {
+          model: User,
+          as: 'members',
+          attributes: ['id', 'name', 'email', 'role', 'avatar']
+        }
+      ]
+    });
     
     if (!team) {
       return res.status(404).json({
@@ -69,11 +85,7 @@ exports.createTeam = async (req, res) => {
 // Update team
 exports.updateTeam = async (req, res) => {
   try {
-    const team = await Team.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).populate('members', 'name email role avatar');
+    const team = await Team.findByPk(req.params.id);
     
     if (!team) {
       return res.status(404).json({
@@ -82,10 +94,22 @@ exports.updateTeam = async (req, res) => {
       });
     }
     
+    await team.update(req.body);
+    
+    const updatedTeam = await Team.findByPk(team.id, {
+      include: [
+        {
+          model: User,
+          as: 'members',
+          attributes: ['id', 'name', 'email', 'role', 'avatar']
+        }
+      ]
+    });
+    
     res.status(200).json({
       success: true,
       message: 'Team updated successfully',
-      data: team
+      data: updatedTeam
     });
   } catch (error) {
     res.status(400).json({
@@ -99,11 +123,7 @@ exports.updateTeam = async (req, res) => {
 // Delete team (soft delete)
 exports.deleteTeam = async (req, res) => {
   try {
-    const team = await Team.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+    const team = await Team.findByPk(req.params.id);
     
     if (!team) {
       return res.status(404).json({
@@ -111,6 +131,8 @@ exports.deleteTeam = async (req, res) => {
         message: 'Team not found'
       });
     }
+    
+    await team.update({ isActive: false });
     
     res.status(200).json({
       success: true,
@@ -129,7 +151,16 @@ exports.deleteTeam = async (req, res) => {
 exports.addMember = async (req, res) => {
   try {
     const { userId } = req.body;
-    const team = await Team.findById(req.params.id);
+    const user = await User.findByPk(userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    const team = await Team.findByPk(req.params.id);
     
     if (!team) {
       return res.status(404).json({
@@ -138,22 +169,29 @@ exports.addMember = async (req, res) => {
       });
     }
     
-    if (team.members.includes(userId)) {
+    if (user.teamId === parseInt(req.params.id)) {
       return res.status(400).json({
         success: false,
         message: 'User already in team'
       });
     }
     
-    team.members.push(userId);
-    await team.save();
+    await user.update({ teamId: team.id });
     
-    await team.populate('members', 'name email role avatar');
+    const updatedTeam = await Team.findByPk(req.params.id, {
+      include: [
+        {
+          model: User,
+          as: 'members',
+          attributes: ['id', 'name', 'email', 'role', 'avatar']
+        }
+      ]
+    });
     
     res.status(200).json({
       success: true,
       message: 'Member added successfully',
-      data: team
+      data: updatedTeam
     });
   } catch (error) {
     res.status(500).json({
@@ -168,7 +206,16 @@ exports.addMember = async (req, res) => {
 exports.removeMember = async (req, res) => {
   try {
     const { userId } = req.body;
-    const team = await Team.findById(req.params.id);
+    const user = await User.findByPk(userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    const team = await Team.findByPk(req.params.id);
     
     if (!team) {
       return res.status(404).json({
@@ -177,15 +224,22 @@ exports.removeMember = async (req, res) => {
       });
     }
     
-    team.members = team.members.filter(member => member.toString() !== userId);
-    await team.save();
+    await user.update({ teamId: null });
     
-    await team.populate('members', 'name email role avatar');
+    const updatedTeam = await Team.findByPk(req.params.id, {
+      include: [
+        {
+          model: User,
+          as: 'members',
+          attributes: ['id', 'name', 'email', 'role', 'avatar']
+        }
+      ]
+    });
     
     res.status(200).json({
       success: true,
       message: 'Member removed successfully',
-      data: team
+      data: updatedTeam
     });
   } catch (error) {
     res.status(500).json({

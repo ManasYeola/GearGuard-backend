@@ -1,36 +1,80 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const userSchema = new mongoose.Schema({
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   name: {
-    type: String,
-    required: [true, 'Name is required'],
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: {
+        msg: 'Name is required'
+      }
+    }
   },
   email: {
-    type: String,
-    required: [true, 'Email is required'],
+    type: DataTypes.STRING,
+    allowNull: false,
     unique: true,
-    lowercase: true,
-    trim: true
+    validate: {
+      isEmail: {
+        msg: 'Please enter a valid email'
+      },
+      notEmpty: {
+        msg: 'Email is required'
+      }
+    }
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: {
+        msg: 'Password is required'
+      },
+      len: {
+        args: [8, 100],
+        msg: 'Password must be at least 8 characters'
+      }
+    }
   },
   role: {
-    type: String,
-    enum: ['Admin', 'Manager', 'Technician', 'User'],
-    default: 'User'
+    type: DataTypes.ENUM('Admin', 'Manager', 'Technician', 'User'),
+    defaultValue: 'User'
   },
-  team: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Team'
+  teamId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Teams',
+      key: 'id'
+    }
   },
   avatar: {
-    type: String
+    type: DataTypes.STRING,
+    allowNull: true
   },
   isActive: {
-    type: Boolean,
-    default: true
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   }
 }, {
-  timestamps: true
+  tableName: 'Users',
+  timestamps: true,
+  hooks: {
+    beforeSave: (user) => {
+      if (user.email) {
+        user.email = user.email.toLowerCase().trim();
+      }
+      if (user.name) {
+        user.name = user.name.trim();
+      }
+    }
+  }
 });
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = User;

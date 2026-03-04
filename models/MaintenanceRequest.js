@@ -1,99 +1,143 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const maintenanceRequestSchema = new mongoose.Schema({
+const MaintenanceRequest = sequelize.define('MaintenanceRequest', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   requestNumber: {
-    type: String,
+    type: DataTypes.STRING,
     unique: true,
-    required: true
+    allowNull: false
   },
   subject: {
-    type: String,
-    required: [true, 'Subject is required'],
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: {
+        msg: 'Subject is required'
+      }
+    }
   },
   description: {
-    type: String,
-    trim: true
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   requestType: {
-    type: String,
-    required: [true, 'Request type is required'],
-    enum: ['Corrective', 'Preventive'],
-    default: 'Corrective'
+    type: DataTypes.ENUM('Corrective', 'Preventive'),
+    allowNull: false,
+    defaultValue: 'Corrective',
+    validate: {
+      notEmpty: {
+        msg: 'Request type is required'
+      }
+    }
   },
-  equipment: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Equipment',
-    required: [true, 'Equipment is required']
+  equipmentId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Equipment',
+      key: 'id'
+    },
+    validate: {
+      notNull: {
+        msg: 'Equipment is required'
+      }
+    }
   },
-  // Auto-filled from equipment
   equipmentCategory: {
-    type: String
+    type: DataTypes.STRING,
+    allowNull: true
   },
-  maintenanceTeam: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Team'
+  maintenanceTeamId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Teams',
+      key: 'id'
+    }
   },
-  assignedTo: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+  assignedToId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   },
   requestDate: {
-    type: Date,
-    default: Date.now
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
   },
   scheduledDate: {
-    type: Date
+    type: DataTypes.DATE,
+    allowNull: true
   },
   completedDate: {
-    type: Date
+    type: DataTypes.DATE,
+    allowNull: true
   },
   duration: {
-    type: Number, // Duration in hours
-    min: 0
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    validate: {
+      min: 0
+    }
   },
   stage: {
-    type: String,
-    enum: ['New', 'In Progress', 'Repaired', 'Scrap'],
-    default: 'New'
+    type: DataTypes.ENUM('New', 'In Progress', 'Repaired', 'Scrap'),
+    defaultValue: 'New'
   },
   priority: {
-    type: String,
-    enum: ['Low', 'Medium', 'High', 'Critical'],
-    default: 'Medium'
+    type: DataTypes.ENUM('Low', 'Medium', 'High', 'Critical'),
+    defaultValue: 'Medium'
   },
-  // For tracking overdue status
   isOverdue: {
-    type: Boolean,
-    default: false
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   },
   notes: {
-    type: String
+    type: DataTypes.TEXT,
+    allowNull: true
   },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+  createdById: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   }
 }, {
-  timestamps: true
+  tableName: 'MaintenanceRequests',
+  timestamps: true,
+  indexes: [
+    {
+      fields: ['stage', 'requestType', 'scheduledDate']
+    }
+  ],
+  hooks: {
+    beforeCreate: async (request) => {
+      // Auto-generate request number
+      if (!request.requestNumber) {
+        const count = await MaintenanceRequest.count();
+        request.requestNumber = `REQ-${String(count + 1).padStart(5, '0')}`;
+      }
+    },
+    beforeSave: async (request) => {
+      // Check if overdue (only for scheduled preventive maintenance)
+      if (request.scheduledDate && request.stage !== 'Repaired' && request.stage !== 'Scrap') {
+        request.isOverdue = new Date() > request.scheduledDate;
+      }
+      
+      if (request.subject) {
+        request.subject = request.subject.trim();
+      }
+    }
+  }
 });
 
-// Auto-generate request number before saving
-maintenanceRequestSchema.pre('save', async function(next) {
-  if (!this.requestNumber) {
-    const count = await mongoose.model('MaintenanceRequest').countDocuments();
-    this.requestNumber = `REQ-${String(count + 1).padStart(5, '0')}`;
-  }
-  
-  // Check if overdue (only for scheduled preventive maintenance)
-  if (this.scheduledDate && this.stage !== 'Repaired' && this.stage !== 'Scrap') {
-    this.isOverdue = new Date() > this.scheduledDate;
-  }
-  
-  next();
-});
-
-// Index for efficient queries
-maintenanceRequestSchema.index({ stage: 1, requestType: 1, scheduledDate: 1 });
-
-module.exports = mongoose.model('MaintenanceRequest', maintenanceRequestSchema);
+module.exports = MaintenanceRequest;
