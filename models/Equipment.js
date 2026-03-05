@@ -103,6 +103,16 @@ const Equipment = sequelize.define('Equipment', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  safetyInstructions: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  attachments: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: [],
+    comment: 'Array of attachment objects: [{type: "datasheet|image", name: "...", url: "..."}]'
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
