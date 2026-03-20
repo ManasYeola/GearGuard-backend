@@ -134,9 +134,12 @@ exports.createRequest = async (req, res) => {
     delete req.body.assignedTo;
     delete req.body.createdBy;
     
-    // Set createdById if provided
-    if (req.body.createdById !== undefined) {
-      // Keep it
+    // Validate createdById if provided; drop invalid values to avoid FK errors.
+    if (req.body.createdById !== undefined && req.body.createdById !== null) {
+      const creator = await User.findByPk(req.body.createdById);
+      if (!creator) {
+        delete req.body.createdById;
+      }
     }
     
     const request = await MaintenanceRequest.create(req.body);

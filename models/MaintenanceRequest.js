@@ -120,7 +120,7 @@ const MaintenanceRequest = sequelize.define('MaintenanceRequest', {
     }
   ],
   hooks: {
-    beforeCreate: async (request) => {
+    beforeValidate: async (request) => {
       // Auto-generate request number
       if (!request.requestNumber) {
         const count = await MaintenanceRequest.count();

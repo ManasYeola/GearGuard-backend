@@ -1,4 +1,5 @@
 require('dotenv').config();
+const bcrypt = require('bcryptjs');
 const { sequelize, connectDB } = require('./config/database');
 const { Team, User, Equipment, MaintenanceRequest } = require('./models');
 
@@ -7,11 +8,13 @@ const seedData = async () => {
     // Connect to database
     await connectDB();
     
-    // Clear existing data
-    await MaintenanceRequest.destroy({ where: {}, truncate: true, cascade: true });
-    await Equipment.destroy({ where: {}, truncate: true, cascade: true });
-    await User.destroy({ where: {}, truncate: true, cascade: true });
-    await Team.destroy({ where: {}, truncate: true, cascade: true });
+    // Clear existing data safely with foreign keys disabled during truncation.
+    await sequelize.query('SET FOREIGN_KEY_CHECKS = 0');
+    await MaintenanceRequest.destroy({ where: {}, truncate: true, force: true });
+    await Equipment.destroy({ where: {}, truncate: true, force: true });
+    await User.destroy({ where: {}, truncate: true, force: true });
+    await Team.destroy({ where: {}, truncate: true, force: true });
+    await sequelize.query('SET FOREIGN_KEY_CHECKS = 1');
     
     console.log('✅ Cleared existing data');
     
@@ -37,28 +40,34 @@ const seedData = async () => {
     console.log('✅ Created teams');
     
     // Create Users
+    const defaultPassword = await bcrypt.hash('Password@123', 10);
+
     const users = await User.bulkCreate([
       {
         name: 'John Doe',
         email: 'john@example.com',
+        password: defaultPassword,
         role: 'Manager',
         teamId: teams[0].id
       },
       {
         name: 'Jane Smith',
         email: 'jane@example.com',
+        password: defaultPassword,
         role: 'Technician',
         teamId: teams[0].id
       },
       {
         name: 'Mike Johnson',
         email: 'mike@example.com',
+        password: defaultPassword,
         role: 'Technician',
         teamId: teams[1].id
       },
       {
         name: 'Sarah Williams',
         email: 'sarah@example.com',
+        password: defaultPassword,
         role: 'Technician',
         teamId: teams[2].id
       }
@@ -177,7 +186,7 @@ const seedData = async () => {
         assignedToId: users[3].id,
         scheduledDate: new Date('2026-01-20'),
         completedDate: new Date('2026-01-20'),
-        duration: 2.5,
+        duration: 3,
         stage: 'Repaired',
         priority: 'Medium',
         createdById: users[0].id
