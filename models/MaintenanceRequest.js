@@ -120,8 +120,8 @@ const MaintenanceRequest = sequelize.define('MaintenanceRequest', {
     }
   ],
   hooks: {
-    beforeCreate: async (request) => {
-      // Auto-generate request number
+    beforeValidate: async (request) => {
+      // Generate request number before validation so notNull checks pass.
       if (!request.requestNumber) {
         const count = await MaintenanceRequest.count();
         request.requestNumber = `REQ-${String(count + 1).padStart(5, '0')}`;
