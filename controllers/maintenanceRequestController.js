@@ -488,3 +488,280 @@ exports.getStatistics = async (req, res) => {
     });
   }
 };
+
+// Assign technician to request (Admin only)
+exports.assignTechnician = async (req, res) => {
+  try {
+    const { assignedToId, scheduledDate } = req.body;
+    const request = await MaintenanceRequest.findByPk(req.params.id);
+    
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Maintenance request not found'
+      });
+    }
+    
+    // Verify technician exists
+    const technician = await User.findByPk(assignedToId);
+    if (!technician || technician.role !== 'Technician') {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid technician or user is not a technician'
+      });
+    }
+    
+    request.assignedToId = assignedToId;
+    if (scheduledDate) {
+      request.scheduledDate = scheduledDate;
+    }
+    request.stage = 'In Progress'; // Auto-move to In Progress when assigned
+    await request.save();
+    
+    const updatedRequest = await MaintenanceRequest.findByPk(request.id, {
+      include: [
+        {
+          model: Equipment,
+          as: 'equipment',
+          attributes: ['id', 'name', 'serialNumber', 'category']
+        },
+        {
+          model: User,
+          as: 'assignedTo',
+          attributes: ['id', 'name', 'email', 'avatar']
+        }
+      ]
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Technician assigned successfully',
+      data: updatedRequest
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Error assigning technician',
+      error: error.message
+    });
+  }
+};
+
+// Start work on request (Technician)
+exports.startWork = async (req, res) => {
+  try {
+    const request = await MaintenanceRequest.findByPk(req.params.id);
+    
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Maintenance request not found'
+      });
+    }
+    
+    if (request.assignedToId !== req.user.id && req.user.role !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this request'
+      });
+    }
+    
+    request.stage = 'In Progress';
+    request.startTime = new Date();
+    request.isActive = true;
+    await request.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Work started on request',
+      data: request
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Error starting work',
+      error: error.message
+    });
+  }
+};
+
+// Add work notes (Technician)
+exports.addWorkNotes = async (req, res) => {
+  try {
+    const { notes } = req.body;
+    const request = await MaintenanceRequest.findByPk(req.params.id);
+    
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Maintenance request not found'
+      });
+    }
+    
+    if (request.assignedToId !== req.user.id && req.user.role !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this request'
+      });
+    }
+    
+    request.workNotes = (request.workNotes || '') + `\n[${new Date().toISOString()}] ${notes}`;
+    await request.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Work notes added',
+      data: request
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Error adding work notes',
+      error: error.message
+    });
+  }
+};
+
+// Complete request (Technician)
+exports.completeRequest = async (req, res) => {
+  try {
+    const { actualCost, completionNotes } = req.body;
+    const request = await MaintenanceRequest.findByPk(req.params.id);
+    
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Maintenance request not found'
+      });
+    }
+    
+    if (request.assignedToId !== req.user.id && req.user.role !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this request'
+      });
+    }
+    
+    request.stage = 'Repaired';
+    request.completedDate = new Date();
+    request.isActive = false;
+    if (actualCost) request.actualCost = actualCost;
+    if (completionNotes) request.workNotes = (request.workNotes || '') + `\n[COMPLETED] ${completionNotes}`;
+    
+    await request.save();
+    
+    const completedRequest = await MaintenanceRequest.findByPk(request.id, {
+      include: [
+        {
+          model: Equipment,
+          as: 'equipment',
+          attributes: ['id', 'name', 'serialNumber']
+        },
+        {
+          model: User,
+          as: 'assignedTo',
+          attributes: ['id', 'name', 'email']
+        }
+      ]
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Request completed successfully',
+      data: completedRequest
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Error completing request',
+      error: error.message
+    });
+  }
+};
+
+// Rate service (Employee/Requester)
+exports.rateService = async (req, res) => {
+  try {
+    const { rating, feedback } = req.body;
+    
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating must be between 1 and 5'
+      });
+    }
+    
+    const request = await MaintenanceRequest.findByPk(req.params.id);
+    
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Maintenance request not found'
+      });
+    }
+    
+    request.rating = rating;
+    request.feedback = feedback || '';
+    request.stage = 'Repaired';
+    await request.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Service rated successfully',
+      data: request
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Error rating service',
+      error: error.message
+    });
+  }
+};
+
+// Get my requests (for technician or employee)
+exports.getMyRequests = async (req, res) => {
+  try {
+    let where = {};
+    
+    if (req.user.role === 'Technician') {
+      where.assignedToId = req.user.id;
+    } else if (req.user.role === 'User') {  // Employee
+      where.createdById = req.user.id;
+    }
+    
+    const requests = await MaintenanceRequest.findAll({
+      where,
+      include: [
+        {
+          model: Equipment,
+          as: 'equipment',
+          attributes: ['id', 'name', 'serialNumber', 'category']
+        },
+        {
+          model: Team,
+          as: 'maintenanceTeam',
+          attributes: ['id', 'name']
+        },
+        {
+          model: User,
+          as: 'assignedTo',
+          attributes: ['id', 'name', 'email', 'avatar']
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    res.status(200).json({
+      success: true,
+      count: requests.length,
+      data: requests
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching requests',
+      error: error.message
+    });
+  }
+};

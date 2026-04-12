@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const { authenticateToken } = require('../middleware/jwt');
 
 // POST /api/auth/register - Register new user
 router.post('/register', authController.register);
@@ -8,7 +9,13 @@ router.post('/register', authController.register);
 // POST /api/auth/login - Login user
 router.post('/login', authController.login);
 
-// GET /api/auth/me - Get current user (placeholder for future JWT implementation)
-router.get('/me', authController.getCurrentUser);
+// POST /api/auth/refresh - Refresh access token
+router.post('/refresh', authController.refreshToken);
+
+// GET /api/auth/me - Get current user (requires authentication)
+router.get('/me', authenticateToken, authController.getCurrentUser);
+
+// POST /api/auth/logout - Logout user
+router.post('/logout', authenticateToken, authController.logout);
 
 module.exports = router;

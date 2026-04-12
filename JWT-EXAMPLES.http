@@ -1,0 +1,415 @@
+### JWT Authentication Examples
+
+## 1. REGISTER NEW USER
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "John Technician",
+  "email": "john.tech@gearguard.com",
+  "password": "SecurePass123!",
+  "role": "Technician"
+}
+
+### ✅ Response:
+# {
+#   "success": true,
+#   "message": "User registered successfully",
+#   "data": {
+#     "user": {
+#       "id": 1,
+#       "name": "John Technician",
+#       "email": "john.tech@gearguard.com",
+#       "role": "Technician",
+#       "isActive": true,
+#       "team": null,
+#       "createdAt": "2024-03-15T10:00:00.000Z",
+#       "updatedAt": "2024-03-15T10:00:00.000Z"
+#     },
+#     "tokens": {
+#       "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJqb2huLnRlY2hAZ2Vhcmd1YXJkLmNvbSIsInJvbGUiOiJUZWNobuJjaWFuIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTY3ODg4NjQwMCwiZXhwIjoxNjc5NDkxMjAwLCJpc3MiOiJnZWFyZ3VhcmQtYXBpIiwiYXVkIjoiZ2Vhcmd1YXJkLWZyb250ZW5kIn0.xyz123...",
+#       "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidHlwZSI6InJlZnJlc2giLCJpYXQiOjE2Nzg4ODY0MDAsImV4cCI6MTY4MTQ4MTIwMCwiaXNzIjoiZ2Vhcmd1YXJkLWFwaSIsImF1ZCI6ImdlYXJndWFyZC1mcm9udGVuZCJ9.abc456...",
+#       "expiresIn": "7d"
+#     }
+#   }
+# }
+
+---
+
+## 2. LOGIN USER
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "john.tech@gearguard.com",
+  "password": "SecurePass123!"
+}
+
+### ✅ Response:
+# Same structure as register
+# Returns new token pair each time
+
+---
+
+## 3. GET CURRENT USER (Protected Route)
+GET http://localhost:5000/api/auth/me
+Authorization: Bearer <ACCESS_TOKEN_FROM_LOGIN>
+
+### ✅ Response:
+# {
+#   "success": true,
+#   "message": "Current user fetched successfully",
+#   "data": {
+#     "id": 1,
+#     "name": "John Technician",
+#     "email": "john.tech@gearguard.com",
+#     "role": "Technician",
+#     "isActive": true,
+#     "team": {
+#       "id": 2,
+#       "name": "Electrical Team",
+#       "specialization": "Electricians"
+#     },
+#     "createdAt": "2024-03-15T10:00:00.000Z",
+#     "updatedAt": "2024-03-15T10:00:00.000Z"
+#   }
+# }
+
+---
+
+## 4. REFRESH ACCESS TOKEN
+POST http://localhost:5000/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+
+### ✅ Response:
+# {
+#   "success": true,
+#   "message": "Token refreshed successfully",
+#   "data": {
+#     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#     "expiresIn": "7d"
+#   }
+# }
+
+---
+
+## 5. LOGOUT (Protected Route)
+POST http://localhost:5000/api/auth/logout
+Authorization: Bearer <ACCESS_TOKEN_FROM_LOGIN>
+
+### ✅ Response:
+# {
+#   "success": true,
+#   "message": "Logout successful. Please discard tokens on client side."
+# }
+
+---
+
+## 6. ACCESS PROTECTED ENDPOINT (Example: Get All Equipment)
+GET http://localhost:5000/api/equipment
+Authorization: Bearer <ACCESS_TOKEN_FROM_LOGIN>
+
+### ✅ Response:
+# {
+#   "success": true,
+#   "message": "Equipment retrieved successfully",
+#   "data": [
+#     {
+#       "id": 1,
+#       "name": "CNC Machine",
+#       "serialNumber": "CNC-001",
+#       "category": "Machinery",
+#       ...
+#     }
+#   ]
+# }
+
+### ❌ Error Response (No Token):
+# {
+#   "success": false,
+#   "message": "No token provided. Please include Authorization header: Bearer <token>"
+# }
+# Status: 401 Unauthorized
+
+### ❌ Error Response (Invalid Token):
+# {
+#   "success": false,
+#   "message": "Invalid or expired token"
+# }
+# Status: 401 Unauthorized
+
+---
+
+## 7. ERROR: Invalid Credentials
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "john.tech@gearguard.com",
+  "password": "WrongPassword"
+}
+
+### ❌ Response:
+# {
+#   "success": false,
+#   "message": "Invalid email or password"
+# }
+# Status: 401 Unauthorized
+
+---
+
+## 8. ERROR: User Already Exists
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Another Name",
+  "email": "john.tech@gearguard.com",
+  "password": "Password123!"
+}
+
+### ❌ Response:
+# {
+#   "success": false,
+#   "message": "User with this email already exists"
+# }
+# Status: 400 Bad Request
+
+---
+
+## 9. ERROR: Deactivated User
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "deactivated@gearguard.com",
+  "password": "Password123!"
+}
+
+### ❌ Response:
+# {
+#   "success": false,
+#   "message": "Your account has been deactivated"
+# }
+# Status: 403 Forbidden
+
+---
+
+## TOKEN STRUCTURE EXAMPLES
+
+### Access Token (JWT Format)
+```
+Header: {
+  "alg": "HS256",
+  "typ": "JWT"
+}
+
+Payload: {
+  "id": 1,
+  "email": "john.tech@gearguard.com",
+  "role": "Technician",
+  "type": "access",
+  "iat": 1678886400,
+  "exp": 1679491200,
+  "iss": "gearguard-api",
+  "aud": "gearguard-frontend"
+}
+
+Signature: HMACSHA256(base64UrlEncode(header) + "." + base64UrlEncode(payload), JWT_SECRET)
+```
+
+**Decoded Online**: Visit https://jwt.io/ and paste your token
+
+---
+
+## POSTMAN SETUP GUIDE
+
+### Step 1: Create Collection Variable
+1. Open Postman
+2. Create collection: "GearGuard JWT"
+3. Go to Variables tab
+4. Add variables:
+   ```
+   - accessToken = (empty, will be set by login)
+   - refreshToken = (empty, will be set by login)
+   - baseUrl = http://localhost:5000/api
+   ```
+
+### Step 2: Set Up Authorization Globally
+1. Click "Edit" on collection
+2. Go to Authorization tab
+3. Type: Bearer Token
+4. Token: {{accessToken}}
+
+### Step 3: Create Login Request
+1. POST {{baseUrl}}/auth/login
+2. After successful response:
+3. Tests tab, add:
+```javascript
+if (pm.response.code === 200) {
+  pm.environment.set("accessToken", pm.response.json().data.tokens.accessToken);
+  pm.environment.set("refreshToken", pm.response.json().data.tokens.refreshToken);
+}
+```
+
+### Step 4: Subsequent Requests Use Token Automatically
+All subsequent requests will include the token in headers automatically!
+
+---
+
+## FRONTEND JAVASCRIPT EXAMPLE
+
+```javascript
+// API Service with JWT
+class ApiService {
+  constructor(baseURL = 'http://localhost:5000/api') {
+    this.baseURL = baseURL;
+  }
+
+  // Get token from localStorage
+  getAccessToken() {
+    return localStorage.getItem('accessToken');
+  }
+
+  getRefreshToken() {
+    return localStorage.getItem('refreshToken');
+  }
+
+  // Store tokens
+  setTokens(accessToken, refreshToken) {
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+  }
+
+  // Clear tokens
+  clearTokens() {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  }
+
+  // Make request with token
+  async request(endpoint, options = {}) {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    const token = this.getAccessToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        ...options,
+        headers,
+      });
+
+      if (response.status === 401) {
+        // Token expired, try to refresh
+        await this.refreshAccessToken();
+        // Retry request
+        return this.request(endpoint, options);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Request failed:', error);
+      throw error;
+    }
+  }
+
+  // Auth methods
+  async register(name, email, password, role) {
+    return this.request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password, role }),
+    });
+  }
+
+  async login(email, password) {
+    const response = await this.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (response.success) {
+      this.setTokens(
+        response.data.tokens.accessToken,
+        response.data.tokens.refreshToken
+      );
+    }
+
+    return response;
+  }
+
+  async getCurrentUser() {
+    return this.request('/auth/me', { method: 'GET' });
+  }
+
+  async refreshAccessToken() {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) throw new Error('No refresh token available');
+
+    const response = await this.request('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (response.success) {
+      localStorage.setItem('accessToken', response.data.accessToken);
+    }
+
+    return response;
+  }
+
+  async logout() {
+    await this.request('/auth/logout', { method: 'POST' });
+    this.clearTokens();
+  }
+
+  // Protected API calls
+  async getEquipment() {
+    return this.request('/equipment', { method: 'GET' });
+  }
+
+  async createRequest(data) {
+    return this.request('/maintenance-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+}
+
+// Usage
+const api = new ApiService();
+
+// Login
+await api.login('john.tech@gearguard.com', 'SecurePass123!');
+
+// Use protected endpoints
+const equipment = await api.getEquipment();
+console.log(equipment);
+
+// Logout
+await api.logout();
+```
+
+---
+
+## Security Checklist
+
+- [ ] JWT_SECRET is set to a strong random value (32+ chars)
+- [ ] JWT_REFRESH_SECRET is set to a different strong value
+- [ ] .env is in .gitignore and not committed
+- [ ] HTTPS is used in production
+- [ ] Tokens are stored securely (localStorage/sessionStorage)
+- [ ] Token refresh is implemented in frontend
+- [ ] Automatic logout on token expiration
+- [ ] Rate limiting on /auth/login endpoint
+- [ ] Password validation enforced
+- [ ] Deactivated users cannot login

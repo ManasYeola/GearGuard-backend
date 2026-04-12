@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { User, Team } = require('../models');
+const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 
 // Register new user
 exports.register = async (req, res) => {
@@ -11,6 +12,23 @@ exports.register = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Please provide name, email, and password'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format'
+      });
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
       });
     }
     
@@ -32,7 +50,8 @@ exports.register = async (req, res) => {
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
-      role: role || 'User'
+      role: role || 'User',
+      isActive: true
     });
     
     // Get user with team info (excluding password)
@@ -46,11 +65,22 @@ exports.register = async (req, res) => {
         }
       ]
     });
+
+    // Generate tokens
+    const accessToken = generateAccessToken(user.id, user.email, user.role);
+    const refreshToken = generateRefreshToken(user.id);
     
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
-      data: userWithTeam
+      data: {
+        user: userWithTeam,
+        tokens: {
+          accessToken,
+          refreshToken,
+          expiresIn: process.env.JWT_EXPIRE || '7d'
+        }
+      }
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -111,6 +141,10 @@ exports.login = async (req, res) => {
       });
     }
     
+    // Generate tokens
+    const accessToken = generateAccessToken(user.id, user.email, user.role);
+    const refreshToken = generateRefreshToken(user.id);
+    
     // Remove password from response
     const userResponse = user.toJSON();
     delete userResponse.password;
@@ -118,7 +152,14 @@ exports.login = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Login successful',
-      data: userResponse
+      data: {
+        user: userResponse,
+        tokens: {
+          accessToken,
+          refreshToken,
+          expiresIn: process.env.JWT_EXPIRE || '7d'
+        }
+      }
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -130,19 +171,110 @@ exports.login = async (req, res) => {
   }
 };
 
-// Get current user (if you implement sessions/JWT later)
-exports.getCurrentUser = async (req, res) => {
+// Refresh token
+exports.refreshToken = async (req, res) => {
   try {
-    // This would use the user ID from session/JWT
-    // For now, just a placeholder
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Refresh token is required'
+      });
+    }
+
+    // Verify refresh token
+    const decoded = verifyRefreshToken(refreshToken);
+
+    if (!decoded) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired refresh token'
+      });
+    }
+
+    // Fetch user
+    const user = await User.findByPk(decoded.id, {
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found or inactive'
+      });
+    }
+
+    // Generate new access token
+    const newAccessToken = generateAccessToken(user.id, user.email, user.role);
+
     res.status(200).json({
       success: true,
-      message: 'Get current user endpoint'
+      message: 'Token refreshed successfully',
+      data: {
+        accessToken: newAccessToken,
+        expiresIn: process.env.JWT_EXPIRE || '7d'
+      }
     });
   } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error refreshing token',
+      error: error.message
+    });
+  }
+};
+
+// Get current user
+exports.getCurrentUser = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Fetch fresh user data with team info
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password'] },
+      include: [
+        {
+          model: Team,
+          as: 'team',
+          attributes: ['id', 'name', 'specialization']
+        }
+      ]
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Current user fetched successfully',
+      data: user
+    });
+  } catch (error) {
+    console.error('Get current user error:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching current user',
+      error: error.message
+    });
+  }
+};
+
+// Logout (optional - for frontend to discard tokens)
+exports.logout = async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      message: 'Logout successful. Please discard tokens on client side.'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error logging out',
       error: error.message
     });
   }
