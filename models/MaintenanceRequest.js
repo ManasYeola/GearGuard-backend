@@ -110,6 +110,25 @@ const MaintenanceRequest = sequelize.define('MaintenanceRequest', {
       model: 'Users',
       key: 'id'
     }
+  },
+  // ── Extended workflow fields ────────────────────────────────────────────────
+  completionNotes: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  actualCost: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    validate: { min: 0 }
+  },
+  rating: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    validate: { min: 1, max: 5 }
+  },
+  feedback: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
   tableName: 'MaintenanceRequests',

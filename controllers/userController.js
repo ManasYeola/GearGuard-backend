@@ -1,3 +1,4 @@
+const bcrypt = require('bcryptjs');
 const { User, Team } = require('../models');
 const { Op } = require('sequelize');
 
@@ -70,24 +71,63 @@ exports.getUser = async (req, res) => {
   }
 };
 
-// Create user
+// Create staff account (Admin only — for Technician / Manager / Admin)
 exports.createUser = async (req, res) => {
   try {
-    const user = await User.create(req.body);
-    
-    const userWithTeam = await User.findByPk(user.id, {
-      include: [
-        {
-          model: Team,
-          as: 'team',
-          attributes: ['id', 'name', 'specialization']
-        }
-      ]
+    const { name, email, password, role, teamId } = req.body;
+
+    // Only staff roles may be created through this endpoint
+    const allowedRoles = ['Technician', 'Manager', 'Admin'];
+    if (!role || !allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: `Role must be one of: ${allowedRoles.join(', ')}. Regular users must self-register.`
+      });
+    }
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, email, and password are required'
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters'
+      });
+    }
+
+    // Check for duplicate email
+    const existing = await User.findOne({ where: { email: email.toLowerCase() } });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: 'A user with this email already exists'
+      });
+    }
+
+    // Hash the password before storing
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const user = await User.create({
+      name,
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role,
+      teamId: teamId || null
     });
-    
+
+    const userWithTeam = await User.findByPk(user.id, {
+      attributes: { exclude: ['password'] },
+      include: [{ model: Team, as: 'team', attributes: ['id', 'name', 'specialization'] }]
+    });
+
     res.status(201).json({
       success: true,
-      message: 'User created successfully',
+      message: `${role} account created. They can now log in with their email and password.`,
       data: userWithTeam
     });
   } catch (error) {

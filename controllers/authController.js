@@ -1,12 +1,25 @@
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { User, Team } = require('../models');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 
-// Register new user
+/**
+ * Generate a signed JWT for a given user record.
+ * Payload includes only the fields that are safe and useful in every request.
+ */
+const signToken = (user) => {
+  return jwt.sign(
+    { id: user.id, role: user.role, email: user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+  );
+};
+
+// ── Register new user ────────────────────────────────────────────────────────
 exports.register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
-    
+
     // Validate input
     if (!name || !email || !password) {
       return res.status(400).json({
@@ -15,6 +28,7 @@ exports.register = async (req, res) => {
       });
     }
 
+<<<<<<< HEAD
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -32,6 +46,8 @@ exports.register = async (req, res) => {
       });
     }
     
+=======
+>>>>>>> a32c162 (Changes applied)
     // Check if user already exists
     const existingUser = await User.findOne({ where: { email: email.toLowerCase() } });
     if (existingUser) {
@@ -40,21 +56,27 @@ exports.register = async (req, res) => {
         message: 'User with this email already exists'
       });
     }
-    
+
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    
-    // Create user
+
+    // Create user — role is ALWAYS 'User' for self-registration.
+    // Staff accounts (Technician / Manager / Admin) must be created by an Admin
+    // via POST /api/users.
     const user = await User.create({
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
+<<<<<<< HEAD
       role: role || 'User',
       isActive: true
+=======
+      role: 'User'
+>>>>>>> a32c162 (Changes applied)
     });
-    
-    // Get user with team info (excluding password)
+
+    // Fetch with team info (excluding password)
     const userWithTeam = await User.findByPk(user.id, {
       attributes: { exclude: ['password'] },
       include: [
@@ -66,6 +88,7 @@ exports.register = async (req, res) => {
       ]
     });
 
+<<<<<<< HEAD
     // Generate tokens
     const accessToken = generateAccessToken(user.id, user.email, user.role);
     const refreshToken = generateRefreshToken(user.id);
@@ -81,6 +104,16 @@ exports.register = async (req, res) => {
           expiresIn: process.env.JWT_EXPIRE || '7d'
         }
       }
+=======
+    // Sign JWT
+    const token = signToken(user);
+
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      token,
+      data: userWithTeam
+>>>>>>> a32c162 (Changes applied)
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -92,11 +125,11 @@ exports.register = async (req, res) => {
   }
 };
 
-// Login user
+// ── Login user ───────────────────────────────────────────────────────────────
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     // Validate input
     if (!email || !password) {
       return res.status(400).json({
@@ -104,9 +137,9 @@ exports.login = async (req, res) => {
         message: 'Please provide email and password'
       });
     }
-    
-    // Find user by email
-    const user = await User.findOne({ 
+
+    // Find user by email (include password for comparison)
+    const user = await User.findOne({
       where: { email: email.toLowerCase() },
       include: [
         {
@@ -116,14 +149,14 @@ exports.login = async (req, res) => {
         }
       ]
     });
-    
+
     if (!user) {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
       });
     }
-    
+
     // Check if user is active
     if (!user.isActive) {
       return res.status(403).json({
@@ -131,7 +164,7 @@ exports.login = async (req, res) => {
         message: 'Your account has been deactivated'
       });
     }
-    
+
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
@@ -140,18 +173,27 @@ exports.login = async (req, res) => {
         message: 'Invalid email or password'
       });
     }
+<<<<<<< HEAD
     
     // Generate tokens
     const accessToken = generateAccessToken(user.id, user.email, user.role);
     const refreshToken = generateRefreshToken(user.id);
     
     // Remove password from response
+=======
+
+    // Build safe user response (no password)
+>>>>>>> a32c162 (Changes applied)
     const userResponse = user.toJSON();
     delete userResponse.password;
-    
+
+    // Sign JWT
+    const token = signToken(user);
+
     res.status(200).json({
       success: true,
       message: 'Login successful',
+<<<<<<< HEAD
       data: {
         user: userResponse,
         tokens: {
@@ -160,6 +202,10 @@ exports.login = async (req, res) => {
           expiresIn: process.env.JWT_EXPIRE || '7d'
         }
       }
+=======
+      token,
+      data: userResponse
+>>>>>>> a32c162 (Changes applied)
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -171,6 +217,7 @@ exports.login = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // Refresh token
 exports.refreshToken = async (req, res) => {
   try {
@@ -215,6 +262,33 @@ exports.refreshToken = async (req, res) => {
         accessToken: newAccessToken,
         expiresIn: process.env.JWT_EXPIRE || '7d'
       }
+=======
+// ── Get current user (requires protect middleware) ───────────────────────────
+exports.getCurrentUser = async (req, res) => {
+  try {
+    // req.user is populated by the protect middleware
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password'] },
+      include: [
+        {
+          model: Team,
+          as: 'team',
+          attributes: ['id', 'name', 'specialization']
+        }
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user
+>>>>>>> a32c162 (Changes applied)
     });
   } catch (error) {
     console.error('Token refresh error:', error);
