@@ -2,6 +2,7 @@ const User = require('./User');
 const Team = require('./Team');
 const Equipment = require('./Equipment');
 const MaintenanceRequest = require('./MaintenanceRequest');
+const Notification = require('./Notification');
 
 // Define associations
 
@@ -48,9 +49,21 @@ MaintenanceRequest.belongsTo(User, {
   as: 'createdBy'
 });
 
+// Notification relationships
+User.hasMany(Notification, {
+  foreignKey: 'userId',
+  as: 'notifications'
+});
+
+Notification.belongsTo(User, {
+  foreignKey: 'userId',
+  as: 'recipient'
+});
+
 module.exports = {
   User,
   Team,
   Equipment,
-  MaintenanceRequest
+  MaintenanceRequest,
+  Notification
 };

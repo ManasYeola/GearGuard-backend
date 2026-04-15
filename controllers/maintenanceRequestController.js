@@ -1,6 +1,77 @@
 const { MaintenanceRequest, Equipment, Team, User } = require('../models');
 const { Op, fn, col } = require('sequelize');
 const { sequelize } = require('../config/database');
+const NotificationService = require('../services/notificationService');
+
+const normalizeRequestType = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+
+  if (['preventive', 'preventive maintenance', 'inspection', 'scheduled'].includes(normalized)) {
+    return 'Preventive';
+  }
+
+  return 'Corrective';
+};
+
+const notifySafely = (handler, context) => {
+  Promise.resolve()
+    .then(() => handler())
+    .catch((error) => {
+      console.warn(`[Notification] ${context} failed:`, error.message);
+    });
+};
+
+const notifyAdminsAndManagersForNewRequest = async (request, equipment) => {
+  try {
+    const reviewers = await User.findAll({
+      where: {
+        role: { [Op.in]: ['Admin', 'Manager'] },
+        isActive: true,
+      },
+      attributes: ['id', 'name', 'email'],
+    });
+
+    reviewers.forEach((reviewer) => {
+      notifySafely(() => NotificationService.notifyNewRequest(reviewer, request, equipment), 'new-request');
+    });
+  } catch (error) {
+    console.warn('[Notification] reviewer lookup failed:', error.message);
+  }
+};
+
+const notifyStatusRecipients = async ({ request, oldStage, newStage }) => {
+  if (!request || oldStage === newStage) return;
+
+  try {
+    const recipients = [];
+    if (request.createdById) {
+      const requester = await User.findByPk(request.createdById, {
+        attributes: ['id', 'name', 'email', 'isActive'],
+      });
+      if (requester?.isActive) {
+        recipients.push(requester);
+      }
+    }
+
+    if (request.assignedToId && request.assignedToId !== request.createdById) {
+      const assignee = await User.findByPk(request.assignedToId, {
+        attributes: ['id', 'name', 'email', 'isActive'],
+      });
+      if (assignee?.isActive) {
+        recipients.push(assignee);
+      }
+    }
+
+    recipients.forEach((recipient) => {
+      notifySafely(
+        () => NotificationService.notifyStatusChange(recipient, request, oldStage, newStage),
+        'status-change'
+      );
+    });
+  } catch (error) {
+    console.warn('[Notification] status recipient lookup failed:', error.message);
+  }
+};
 
 // Get all maintenance requests
 exports.getAllRequests = async (req, res) => {
@@ -122,6 +193,12 @@ exports.createRequest = async (req, res) => {
     req.body.equipmentId = equipmentId;
     req.body.equipmentCategory = equipment.category;
     req.body.maintenanceTeamId = equipment.maintenanceTeamId;
+    req.body.requestType = normalizeRequestType(req.body.requestType);
+
+    // Default creator to currently authenticated user if available.
+    if (!req.body.createdById && req.user?.id) {
+      req.body.createdById = req.user.id;
+    }
     
     // If equipment has a default technician, assign it
     if (equipment.defaultTechnicianId && !req.body.assignedTo) {
@@ -160,9 +237,29 @@ exports.createRequest = async (req, res) => {
           model: User,
           as: 'assignedTo',
           attributes: ['id', 'name', 'email', 'avatar']
+        },
+        {
+          model: User,
+          as: 'createdBy',
+          attributes: ['id', 'name', 'email']
         }
       ]
     });
+
+    await notifyAdminsAndManagersForNewRequest(requestWithRelations, equipment);
+
+    if (requestWithRelations?.assignedTo) {
+      notifySafely(
+        () =>
+          NotificationService.notifyTechnicianAssigned(
+            requestWithRelations.assignedTo,
+            requestWithRelations,
+            equipment,
+            requestWithRelations.scheduledDate || 'Not scheduled yet'
+          ),
+        'auto-assignment'
+      );
+    }
     
     res.status(201).json({
       success: true,
@@ -239,6 +336,7 @@ exports.updateStage = async (req, res) => {
       });
     }
     
+    const oldStage = request.stage;
     request.stage = stage;
     
     // If moved to Repaired, set completed date
@@ -257,6 +355,12 @@ exports.updateStage = async (req, res) => {
     }
     
     await request.save();
+
+    await notifyStatusRecipients({
+      request,
+      oldStage,
+      newStage: stage,
+    });
     
     const updatedRequest = await MaintenanceRequest.findByPk(request.id, {
       include: [
@@ -326,6 +430,11 @@ exports.getKanbanView = async (req, res) => {
     
     let where = {};
     if (team) where.maintenanceTeamId = team;
+
+    // Technicians can only see requests assigned to them.
+    if (req.user?.role === 'Technician') {
+      where.assignedToId = req.user.id;
+    }
     
     const requests = await MaintenanceRequest.findAll({
       where,
@@ -370,12 +479,23 @@ exports.getCalendarView = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
-    let where = { requestType: 'Preventive' };
+    let where = {
+      scheduledDate: {
+        [Op.not]: null
+      }
+    };
     
     if (startDate && endDate) {
       where.scheduledDate = {
         [Op.between]: [new Date(startDate), new Date(endDate)]
       };
+    }
+
+    // Role-aware visibility for calendar data.
+    if (req.user?.role === 'Technician') {
+      where.assignedToId = req.user.id;
+    } else if (req.user?.role === 'User') {
+      where.createdById = req.user.id;
     }
     
     const requests = await MaintenanceRequest.findAll({
@@ -489,7 +609,6 @@ exports.getStatistics = async (req, res) => {
   }
 };
 
-<<<<<<< HEAD
 // Assign technician to request (Admin only)
 exports.assignTechnician = async (req, res) => {
   try {
@@ -512,6 +631,7 @@ exports.assignTechnician = async (req, res) => {
       });
     }
     
+    const oldStage = request.stage;
     request.assignedToId = assignedToId;
     if (scheduledDate) {
       request.scheduledDate = scheduledDate;
@@ -530,8 +650,32 @@ exports.assignTechnician = async (req, res) => {
           model: User,
           as: 'assignedTo',
           attributes: ['id', 'name', 'email', 'avatar']
+        },
+        {
+          model: User,
+          as: 'createdBy',
+          attributes: ['id', 'name', 'email']
         }
       ]
+    });
+
+    if (updatedRequest?.assignedTo && updatedRequest?.equipment) {
+      notifySafely(
+        () =>
+          NotificationService.notifyTechnicianAssigned(
+            updatedRequest.assignedTo,
+            updatedRequest,
+            updatedRequest.equipment,
+            updatedRequest.scheduledDate || 'Not scheduled yet'
+          ),
+        'assign-technician'
+      );
+    }
+
+    await notifyStatusRecipients({
+      request,
+      oldStage,
+      newStage: request.stage,
     });
     
     res.status(200).json({
@@ -567,10 +711,17 @@ exports.startWork = async (req, res) => {
       });
     }
     
+    const oldStage = request.stage;
     request.stage = 'In Progress';
     request.startTime = new Date();
     request.isActive = true;
     await request.save();
+
+    await notifyStatusRecipients({
+      request,
+      oldStage,
+      newStage: request.stage,
+    });
     
     res.status(200).json({
       success: true,
@@ -624,103 +775,10 @@ exports.addWorkNotes = async (req, res) => {
 };
 
 // Complete request (Technician)
-=======
-// ── Get requests created by the logged-in user ────────────────────────────────
-exports.getMyRequests = async (req, res) => {
-  try {
-    const requests = await MaintenanceRequest.findAll({
-      where: { createdById: req.user.id },
-      include: [
-        { model: Equipment, as: 'equipment', attributes: ['id', 'name', 'serialNumber', 'category', 'location'] },
-        { model: Team,      as: 'maintenanceTeam', attributes: ['id', 'name', 'specialization'] },
-        { model: User,      as: 'assignedTo', attributes: ['id', 'name', 'email', 'avatar'] }
-      ],
-      order: [['createdAt', 'DESC']]
-    });
-    res.status(200).json({ success: true, count: requests.length, data: requests });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Error fetching your requests', error: error.message });
-  }
-};
-
-// ── Assign technician (Admin / Manager) ───────────────────────────────────────
-exports.assignTechnician = async (req, res) => {
-  try {
-    const { assignedToId, scheduledDate, maintenanceTeamId } = req.body;
-    const request = await MaintenanceRequest.findByPk(req.params.id);
-    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
-
-    if (assignedToId) {
-      const tech = await User.findByPk(assignedToId);
-      if (!tech) return res.status(400).json({ success: false, message: 'Technician not found' });
-      request.assignedToId = assignedToId;
-    }
-    if (scheduledDate)     request.scheduledDate    = scheduledDate;
-    if (maintenanceTeamId) request.maintenanceTeamId = maintenanceTeamId;
-    await request.save();
-
-    const updated = await MaintenanceRequest.findByPk(request.id, {
-      include: [
-        { model: Equipment, as: 'equipment', attributes: ['id', 'name', 'serialNumber'] },
-        { model: User,      as: 'assignedTo', attributes: ['id', 'name', 'email'] },
-        { model: Team,      as: 'maintenanceTeam', attributes: ['id', 'name'] }
-      ]
-    });
-    res.status(200).json({ success: true, message: 'Technician assigned', data: updated });
-  } catch (error) {
-    res.status(400).json({ success: false, message: 'Error assigning technician', error: error.message });
-  }
-};
-
-// ── Start work (assigned Technician or Admin/Manager) ─────────────────────────
-exports.startWork = async (req, res) => {
-  try {
-    const request = await MaintenanceRequest.findByPk(req.params.id);
-    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
-
-    if (request.stage !== 'New') {
-      return res.status(400).json({ success: false, message: `Request is already "${request.stage}"` });
-    }
-    const isPrivileged = ['Admin', 'Manager'].includes(req.user.role);
-    if (!isPrivileged && request.assignedToId !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'You are not assigned to this request' });
-    }
-    request.stage = 'In Progress';
-    await request.save();
-    res.status(200).json({ success: true, message: 'Work started — request is now In Progress', data: request });
-  } catch (error) {
-    res.status(400).json({ success: false, message: 'Error starting work', error: error.message });
-  }
-};
-
-// ── Add work notes (assignedTo or Admin/Manager) ──────────────────────────────
-exports.addNotes = async (req, res) => {
-  try {
-    const { notes } = req.body;
-    if (!notes || !notes.trim()) {
-      return res.status(400).json({ success: false, message: 'Notes cannot be empty' });
-    }
-    const request = await MaintenanceRequest.findByPk(req.params.id);
-    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
-
-    const ts = new Date().toISOString().slice(0, 16).replace('T', ' ');
-    request.notes = request.notes
-      ? `${request.notes}\n\n[${ts}] ${notes.trim()}`
-      : `[${ts}] ${notes.trim()}`;
-    await request.save();
-    res.status(200).json({ success: true, message: 'Notes saved', data: request });
-  } catch (error) {
-    res.status(400).json({ success: false, message: 'Error adding notes', error: error.message });
-  }
-};
-
-// ── Complete request (assignedTo or Admin/Manager) ────────────────────────────
->>>>>>> a32c162 (Changes applied)
 exports.completeRequest = async (req, res) => {
   try {
     const { actualCost, completionNotes } = req.body;
     const request = await MaintenanceRequest.findByPk(req.params.id);
-<<<<<<< HEAD
     
     if (!request) {
       return res.status(404).json({
@@ -736,6 +794,7 @@ exports.completeRequest = async (req, res) => {
       });
     }
     
+    const oldStage = request.stage;
     request.stage = 'Repaired';
     request.completedDate = new Date();
     request.isActive = false;
@@ -743,6 +802,12 @@ exports.completeRequest = async (req, res) => {
     if (completionNotes) request.workNotes = (request.workNotes || '') + `\n[COMPLETED] ${completionNotes}`;
     
     await request.save();
+
+    await notifyStatusRecipients({
+      request,
+      oldStage,
+      newStage: request.stage,
+    });
     
     const completedRequest = await MaintenanceRequest.findByPk(request.id, {
       include: [
@@ -755,9 +820,27 @@ exports.completeRequest = async (req, res) => {
           model: User,
           as: 'assignedTo',
           attributes: ['id', 'name', 'email']
+        },
+        {
+          model: User,
+          as: 'createdBy',
+          attributes: ['id', 'name', 'email']
         }
       ]
     });
+
+    if (completedRequest?.createdBy && completedRequest?.assignedTo && completedRequest?.equipment) {
+      notifySafely(
+        () =>
+          NotificationService.notifyRequestCompleted(
+            completedRequest.createdBy,
+            completedRequest.assignedTo,
+            completedRequest,
+            completedRequest.equipment
+          ),
+        'request-completed'
+      );
+    }
     
     res.status(200).json({
       success: true,
@@ -796,8 +879,28 @@ exports.rateService = async (req, res) => {
     
     request.rating = rating;
     request.feedback = feedback || '';
+    const oldStage = request.stage;
     request.stage = 'Repaired';
     await request.save();
+
+    await notifyStatusRecipients({
+      request,
+      oldStage,
+      newStage: request.stage,
+    });
+
+    if (request.assignedToId) {
+      const technician = await User.findByPk(request.assignedToId, {
+        attributes: ['id', 'name', 'email', 'isActive'],
+      });
+
+      if (technician?.isActive) {
+        notifySafely(
+          () => NotificationService.notifyServiceRating(technician, request, rating, feedback),
+          'service-rating'
+        );
+      }
+    }
     
     res.status(200).json({
       success: true,
@@ -857,59 +960,5 @@ exports.getMyRequests = async (req, res) => {
       message: 'Error fetching requests',
       error: error.message
     });
-=======
-    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
-
-    if (['Repaired', 'Scrap'].includes(request.stage)) {
-      return res.status(400).json({ success: false, message: `Request is already "${request.stage}"` });
-    }
-    const isPrivileged = ['Admin', 'Manager'].includes(req.user.role);
-    if (!isPrivileged && request.assignedToId !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'You are not assigned to this request' });
-    }
-    request.stage         = 'Repaired';
-    request.completedDate = new Date();
-    if (actualCost     !== undefined) request.actualCost     = actualCost;
-    if (completionNotes)              request.completionNotes = completionNotes.trim();
-    await request.save();
-
-    const updated = await MaintenanceRequest.findByPk(request.id, {
-      include: [
-        { model: Equipment, as: 'equipment', attributes: ['id', 'name', 'serialNumber'] },
-        { model: User,      as: 'assignedTo', attributes: ['id', 'name', 'email'] }
-      ]
-    });
-    res.status(200).json({ success: true, message: 'Request completed successfully', data: updated });
-  } catch (error) {
-    res.status(400).json({ success: false, message: 'Error completing request', error: error.message });
-  }
-};
-
-// ── Rate service (original requester or Admin) ────────────────────────────────
-exports.rateService = async (req, res) => {
-  try {
-    const { rating, feedback } = req.body;
-    if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ success: false, message: 'Rating must be an integer between 1 and 5' });
-    }
-    const request = await MaintenanceRequest.findByPk(req.params.id);
-    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
-
-    if (request.stage !== 'Repaired') {
-      return res.status(400).json({ success: false, message: 'Only completed (Repaired) requests can be rated' });
-    }
-    if (request.rating) {
-      return res.status(400).json({ success: false, message: 'This request has already been rated' });
-    }
-    if (req.user.role !== 'Admin' && request.createdById !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'Only the original requester can rate this service' });
-    }
-    request.rating   = rating;
-    request.feedback = feedback ? feedback.trim() : null;
-    await request.save();
-    res.status(200).json({ success: true, message: 'Thank you for your feedback!', data: request });
-  } catch (error) {
-    res.status(400).json({ success: false, message: 'Error rating service', error: error.message });
->>>>>>> a32c162 (Changes applied)
   }
 };

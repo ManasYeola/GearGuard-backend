@@ -28,7 +28,6 @@ exports.register = async (req, res) => {
       });
     }
 
-<<<<<<< HEAD
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -46,8 +45,6 @@ exports.register = async (req, res) => {
       });
     }
     
-=======
->>>>>>> a32c162 (Changes applied)
     // Check if user already exists
     const existingUser = await User.findOne({ where: { email: email.toLowerCase() } });
     if (existingUser) {
@@ -68,12 +65,8 @@ exports.register = async (req, res) => {
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
-<<<<<<< HEAD
       role: role || 'User',
       isActive: true
-=======
-      role: 'User'
->>>>>>> a32c162 (Changes applied)
     });
 
     // Fetch with team info (excluding password)
@@ -88,7 +81,6 @@ exports.register = async (req, res) => {
       ]
     });
 
-<<<<<<< HEAD
     // Generate tokens
     const accessToken = generateAccessToken(user.id, user.email, user.role);
     const refreshToken = generateRefreshToken(user.id);
@@ -104,16 +96,6 @@ exports.register = async (req, res) => {
           expiresIn: process.env.JWT_EXPIRE || '7d'
         }
       }
-=======
-    // Sign JWT
-    const token = signToken(user);
-
-    res.status(201).json({
-      success: true,
-      message: 'User registered successfully',
-      token,
-      data: userWithTeam
->>>>>>> a32c162 (Changes applied)
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -173,17 +155,12 @@ exports.login = async (req, res) => {
         message: 'Invalid email or password'
       });
     }
-<<<<<<< HEAD
     
     // Generate tokens
     const accessToken = generateAccessToken(user.id, user.email, user.role);
     const refreshToken = generateRefreshToken(user.id);
     
     // Remove password from response
-=======
-
-    // Build safe user response (no password)
->>>>>>> a32c162 (Changes applied)
     const userResponse = user.toJSON();
     delete userResponse.password;
 
@@ -193,7 +170,6 @@ exports.login = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Login successful',
-<<<<<<< HEAD
       data: {
         user: userResponse,
         tokens: {
@@ -202,10 +178,6 @@ exports.login = async (req, res) => {
           expiresIn: process.env.JWT_EXPIRE || '7d'
         }
       }
-=======
-      token,
-      data: userResponse
->>>>>>> a32c162 (Changes applied)
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -217,7 +189,6 @@ exports.login = async (req, res) => {
   }
 };
 
-<<<<<<< HEAD
 // Refresh token
 exports.refreshToken = async (req, res) => {
   try {
@@ -262,33 +233,6 @@ exports.refreshToken = async (req, res) => {
         accessToken: newAccessToken,
         expiresIn: process.env.JWT_EXPIRE || '7d'
       }
-=======
-// ── Get current user (requires protect middleware) ───────────────────────────
-exports.getCurrentUser = async (req, res) => {
-  try {
-    // req.user is populated by the protect middleware
-    const user = await User.findByPk(req.user.id, {
-      attributes: { exclude: ['password'] },
-      include: [
-        {
-          model: Team,
-          as: 'team',
-          attributes: ['id', 'name', 'specialization']
-        }
-      ]
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: user
->>>>>>> a32c162 (Changes applied)
     });
   } catch (error) {
     console.error('Token refresh error:', error);
