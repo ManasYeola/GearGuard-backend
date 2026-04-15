@@ -28,6 +28,26 @@ exports.register = async (req, res) => {
       });
     }
 
+<<<<<<< HEAD
+=======
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format'
+      });
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+    
+>>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
     // Check if user already exists
     const existingUser = await User.findOne({ where: { email: email.toLowerCase() } });
     if (existingUser) {
@@ -48,7 +68,12 @@ exports.register = async (req, res) => {
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
+<<<<<<< HEAD
       role: 'User'
+=======
+      role: role || 'User',
+      isActive: true
+>>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
     });
 
     // Fetch with team info (excluding password)
@@ -63,6 +88,7 @@ exports.register = async (req, res) => {
       ]
     });
 
+<<<<<<< HEAD
     // Sign JWT
     const token = signToken(user);
 
@@ -71,6 +97,23 @@ exports.register = async (req, res) => {
       message: 'User registered successfully',
       token,
       data: userWithTeam
+=======
+    // Generate tokens
+    const accessToken = generateAccessToken(user.id, user.email, user.role);
+    const refreshToken = generateRefreshToken(user.id);
+    
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: {
+        user: userWithTeam,
+        tokens: {
+          accessToken,
+          refreshToken,
+          expiresIn: process.env.JWT_EXPIRE || '7d'
+        }
+      }
+>>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -130,8 +173,17 @@ exports.login = async (req, res) => {
         message: 'Invalid email or password'
       });
     }
+<<<<<<< HEAD
 
     // Build safe user response (no password)
+=======
+    
+    // Generate tokens
+    const accessToken = generateAccessToken(user.id, user.email, user.role);
+    const refreshToken = generateRefreshToken(user.id);
+    
+    // Remove password from response
+>>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
     const userResponse = user.toJSON();
     delete userResponse.password;
 
@@ -141,8 +193,19 @@ exports.login = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Login successful',
+<<<<<<< HEAD
       token,
       data: userResponse
+=======
+      data: {
+        user: userResponse,
+        tokens: {
+          accessToken,
+          refreshToken,
+          expiresIn: process.env.JWT_EXPIRE || '7d'
+        }
+      }
+>>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -154,6 +217,7 @@ exports.login = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // ── Get current user (requires protect middleware) ───────────────────────────
 exports.getCurrentUser = async (req, res) => {
   try {
@@ -179,6 +243,52 @@ exports.getCurrentUser = async (req, res) => {
     res.status(200).json({
       success: true,
       data: user
+=======
+// Refresh token
+exports.refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Refresh token is required'
+      });
+    }
+
+    // Verify refresh token
+    const decoded = verifyRefreshToken(refreshToken);
+
+    if (!decoded) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired refresh token'
+      });
+    }
+
+    // Fetch user
+    const user = await User.findByPk(decoded.id, {
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found or inactive'
+      });
+    }
+
+    // Generate new access token
+    const newAccessToken = generateAccessToken(user.id, user.email, user.role);
+
+    res.status(200).json({
+      success: true,
+      message: 'Token refreshed successfully',
+      data: {
+        accessToken: newAccessToken,
+        expiresIn: process.env.JWT_EXPIRE || '7d'
+      }
+>>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
     });
   } catch (error) {
     console.error('Token refresh error:', error);

@@ -30,6 +30,10 @@ const generateAccessToken = (userId, email, role) => {
  * @returns {string} JWT refresh token
  */
 const generateRefreshToken = (userId) => {
+  if (!process.env.JWT_REFRESH_SECRET) {
+    return null;
+  }
+
   const payload = {
     id: userId,
     type: 'refresh'
@@ -73,6 +77,10 @@ const verifyAccessToken = (token) => {
  * @returns {object} Decoded token payload or null if invalid
  */
 const verifyRefreshToken = (token) => {
+  if (!process.env.JWT_REFRESH_SECRET) {
+    return null;
+  }
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET, {
       issuer: 'gearguard-api',
