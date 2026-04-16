@@ -45,12 +45,13 @@ router.put('/:id', maintenanceRequestController.updateRequest);
 router.patch('/:id/start-work', authorizeRole('Technician', 'Admin'), maintenanceRequestController.startWork);
 router.patch('/:id/complete', authorizeRole('Technician', 'Admin'), maintenanceRequestController.completeRequest);
 router.patch('/:id/add-notes', authorizeRole('Technician', 'Admin'), maintenanceRequestController.addWorkNotes);
-router.patch('/:id/stage', maintenanceRequestController.updateStage);
+router.patch('/:id/stage', authorizeRole('Technician', 'Manager', 'Admin'), maintenanceRequestController.updateStage);
 
 // Admin workflow
 router.patch('/:id/assign-technician', authorizeRole('Admin'), maintenanceRequestController.assignTechnician);
 
 // Employee feedback
+router.patch('/:id/verify', authorizeRole('User', 'Admin'), maintenanceRequestController.verifyRequest);
 router.patch('/:id/rate', authorizeRole('User', 'Admin'), maintenanceRequestController.rateService);
 
 // Delete request - admin only

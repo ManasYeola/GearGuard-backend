@@ -30,6 +30,7 @@
     "jsonwebtoken": "^9.0.0",
     "mysql2": "^3.2.0",
     "nodemailer": "^6.9.16",
+    "pdfkit": "^0.18.0",
     "sequelize": "^6.28.0"
 >>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
   },

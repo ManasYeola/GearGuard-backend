@@ -46,4 +46,9 @@ router.get('/employee', authorizeRole('User'), dashboardController.getEmployeeDa
 router.get('/team-performance', authorizeRole('Admin', 'Technician'), dashboardController.getTeamPerformance);
 >>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
 
+// Role-aware report (personal/team/global depending on role)
+router.get('/report', authorizeRole('Admin', 'Manager', 'Technician', 'User'), dashboardController.getRoleBasedReport);
+router.get('/report/export', authorizeRole('Admin', 'Manager'), dashboardController.exportRoleBasedReport);
+router.get('/equipment-analysis', authorizeRole('Admin', 'Manager', 'Technician', 'User'), dashboardController.getEquipmentAnalysis);
+
 module.exports = router;

@@ -73,6 +73,11 @@ const notifyStatusRecipients = async ({ request, oldStage, newStage }) => {
   }
 };
 
+const isRequesterOrAdmin = (request, user) => {
+  if (!request || !user) return false;
+  return user.role === 'Admin' || request.createdById === user.id;
+};
+
 // Get all maintenance requests
 exports.getAllRequests = async (req, res) => {
   try {
@@ -342,6 +347,15 @@ exports.updateStage = async (req, res) => {
     // If moved to Repaired, set completed date
     if (stage === 'Repaired' && !request.completedDate) {
       request.completedDate = new Date();
+      request.rating = null;
+      request.feedback = '';
+    }
+
+    // Reopened requests should go through verification again after repair.
+    if (stage === 'In Progress' && oldStage === 'Repaired') {
+      request.completedDate = null;
+      request.rating = null;
+      request.feedback = '';
     }
     
     // If moved to Scrap, mark equipment status and log
@@ -378,9 +392,33 @@ exports.updateStage = async (req, res) => {
           model: User,
           as: 'assignedTo',
           attributes: ['id', 'name', 'email', 'avatar']
+        },
+        {
+          model: User,
+          as: 'createdBy',
+          attributes: ['id', 'name', 'email']
         }
       ]
     });
+
+    if (
+      oldStage !== 'Repaired' &&
+      stage === 'Repaired' &&
+      updatedRequest?.createdBy &&
+      updatedRequest?.assignedTo &&
+      updatedRequest?.equipment
+    ) {
+      notifySafely(
+        () =>
+          NotificationService.notifyRequestCompleted(
+            updatedRequest.createdBy,
+            updatedRequest.assignedTo,
+            updatedRequest,
+            updatedRequest.equipment
+          ),
+        'request-completed-stage-update'
+      );
+    }
     
     res.status(200).json({
       success: true,
@@ -945,8 +983,13 @@ exports.rateService = async (req, res) => {
     request.stage = 'Repaired';
     request.completedDate = new Date();
     request.isActive = false;
+    request.rating = null;
+    request.feedback = '';
     if (actualCost) request.actualCost = actualCost;
-    if (completionNotes) request.workNotes = (request.workNotes || '') + `\n[COMPLETED] ${completionNotes}`;
+    if (completionNotes) {
+      request.completionNotes = completionNotes;
+      request.workNotes = (request.workNotes || '') + `\n[COMPLETED] ${completionNotes}`;
+    }
     
     await request.save();
 
@@ -991,7 +1034,7 @@ exports.rateService = async (req, res) => {
     
     res.status(200).json({
       success: true,
-      message: 'Request completed successfully',
+      message: 'Work marked complete and sent for user verification',
       data: completedRequest
     });
   } catch (error) {
@@ -1003,17 +1046,10 @@ exports.rateService = async (req, res) => {
   }
 };
 
-// Rate service (Employee/Requester)
-exports.rateService = async (req, res) => {
+// Verify completion and close or reopen request (Requester/Admin)
+exports.verifyRequest = async (req, res) => {
   try {
-    const { rating, feedback } = req.body;
-    
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({
-        success: false,
-        message: 'Rating must be between 1 and 5'
-      });
-    }
+    const { satisfied = true, rating, feedback } = req.body;
     
     const request = await MaintenanceRequest.findByPk(req.params.id);
     
@@ -1023,45 +1059,150 @@ exports.rateService = async (req, res) => {
         message: 'Maintenance request not found'
       });
     }
-    
-    request.rating = rating;
-    request.feedback = feedback || '';
+
+    if (!isRequesterOrAdmin(request, req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the requester can verify this maintenance completion'
+      });
+    }
+
+    if (request.stage !== 'Repaired') {
+      return res.status(400).json({
+        success: false,
+        message: 'Request can be verified only after technician marks it as repaired'
+      });
+    }
+
+    const isSatisfied =
+      typeof satisfied === 'string'
+        ? ['true', 'yes', '1'].includes(satisfied.trim().toLowerCase())
+        : Boolean(satisfied);
+
     const oldStage = request.stage;
-    request.stage = 'Repaired';
-    await request.save();
 
-    await notifyStatusRecipients({
-      request,
-      oldStage,
-      newStage: request.stage,
-    });
+    if (!isSatisfied) {
+      const feedbackText = String(feedback || '').trim();
 
-    if (request.assignedToId) {
-      const technician = await User.findByPk(request.assignedToId, {
-        attributes: ['id', 'name', 'email', 'isActive'],
+      if (!feedbackText) {
+        return res.status(400).json({
+          success: false,
+          message: 'Feedback is required when marking repair as unsatisfactory'
+        });
+      }
+
+      request.stage = 'In Progress';
+      request.completedDate = null;
+      request.rating = null;
+      request.feedback = feedbackText;
+      request.workNotes =
+        (request.workNotes || '') +
+        `\n[REOPENED_BY_REQUESTER ${new Date().toISOString()}] ${feedbackText}`;
+
+      await request.save();
+
+      const [technician, requester, equipment] = await Promise.all([
+        request.assignedToId
+          ? User.findByPk(request.assignedToId, {
+              attributes: ['id', 'name', 'email', 'isActive'],
+            })
+          : null,
+        request.createdById
+          ? User.findByPk(request.createdById, {
+              attributes: ['id', 'name', 'email', 'isActive'],
+            })
+          : null,
+        Equipment.findByPk(request.equipmentId, {
+          attributes: ['id', 'name', 'serialNumber'],
+        }),
+      ]);
+
+      await notifyStatusRecipients({
+        request,
+        oldStage,
+        newStage: request.stage,
       });
 
       if (technician?.isActive) {
         notifySafely(
-          () => NotificationService.notifyServiceRating(technician, request, rating, feedback),
-          'service-rating'
+          () =>
+            NotificationService.notifyRequestReopenedByRequester(
+              technician,
+              requester || req.user,
+              request,
+              equipment,
+              feedbackText
+            ),
+          'request-reopened-by-requester'
         );
       }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Request reopened and sent back to technician',
+        data: request,
+      });
+    }
+
+    const normalizedRating = Number(rating);
+    if (!Number.isInteger(normalizedRating) || normalizedRating < 1 || normalizedRating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating must be an integer between 1 and 5'
+      });
+    }
+    
+    request.rating = normalizedRating;
+    request.feedback = String(feedback || '').trim();
+    await request.save();
+
+    const [technician, requester, equipment] = await Promise.all([
+      request.assignedToId
+        ? User.findByPk(request.assignedToId, {
+            attributes: ['id', 'name', 'email', 'isActive'],
+          })
+        : null,
+      request.createdById
+        ? User.findByPk(request.createdById, {
+            attributes: ['id', 'name', 'email', 'isActive'],
+          })
+        : null,
+      Equipment.findByPk(request.equipmentId, {
+        attributes: ['id', 'name', 'serialNumber'],
+      }),
+    ]);
+
+    if (requester?.isActive) {
+      notifySafely(
+        () =>
+          NotificationService.notifyRequestVerifiedClosed(
+            requester,
+            technician?.isActive ? technician : null,
+            request,
+            equipment,
+            normalizedRating,
+            request.feedback
+          ),
+        'request-verified-closed'
+      );
     }
     
     res.status(200).json({
       success: true,
-      message: 'Service rated successfully',
+      message: 'Repair verified and request closed successfully',
       data: request
     });
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: 'Error rating service',
+      message: 'Error verifying maintenance completion',
       error: error.message
     });
   }
 };
+
+// Backward-compatible alias for older clients.
+exports.rateService = exports.verifyRequest;
 
 // Get my requests (for technician or employee)
 exports.getMyRequests = async (req, res) => {

@@ -25,6 +25,13 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MAX_PORT_RETRIES = 10;
+const isEmailNotificationsEnabled =
+  process.env.EMAIL_NOTIFICATIONS_ENABLED !== 'false' &&
+  !!process.env.SMTP_HOST &&
+  !!process.env.SMTP_PORT &&
+  !!process.env.SMTP_USER &&
+  !!process.env.SMTP_PASS &&
+  !!process.env.EMAIL_FROM;
 
 // Connect to MySQL
 connectDB();
@@ -139,6 +146,7 @@ const startServer = (port, retriesLeft) => {
     console.log(`\n🚀 GearGuard API running on port ${port}`);
     console.log(`📍 Server: http://localhost:${port}`);
     console.log(`🔒 JWT Auth: enabled`);
+    console.log(`📧 Email notifications: ${isEmailNotificationsEnabled ? 'enabled' : 'disabled (configure SMTP in .env)'}`);
     console.log(`📋 Environment: ${process.env.NODE_ENV || 'development'}\n`);
   });
 
