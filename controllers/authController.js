@@ -1,26 +1,30 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const { User, Team } = require('../models');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 
-/**
- * Generate a signed JWT for a given user record.
- * Payload includes only the fields that are safe and useful in every request.
- */
-const signToken = (user) => {
-  return jwt.sign(
-    { id: user.id, role: user.role, email: user.email },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-  );
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const attachTeam = {
+  model: Team,
+  as: 'team',
+  attributes: ['id', 'name', 'specialization']
 };
 
-// ── Register new user ────────────────────────────────────────────────────────
+const buildTokens = (user) => {
+  const accessToken = generateAccessToken(user.id, user.email, user.role);
+  const refreshToken = generateRefreshToken(user.id);
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresIn: process.env.JWT_EXPIRE || '7d'
+  };
+};
+
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
-    // Validate input
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -28,24 +32,31 @@ exports.register = async (req, res) => {
       });
     }
 
+<<<<<<< HEAD
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
+=======
+    if (!EMAIL_REGEX.test(email)) {
+>>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
       return res.status(400).json({
         success: false,
         message: 'Invalid email format'
       });
     }
 
-    // Validate password length
-    if (password.length < 6) {
+    if (password.length < 8) {
       return res.status(400).json({
         success: false,
-        message: 'Password must be at least 6 characters long'
+        message: 'Password must be at least 8 characters long'
       });
     }
+<<<<<<< HEAD
     
     // Check if user already exists
+=======
+
+>>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
     const existingUser = await User.findOne({ where: { email: email.toLowerCase() } });
     if (existingUser) {
       return res.status(400).json({
@@ -54,52 +65,48 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create user — role is ALWAYS 'User' for self-registration.
-    // Staff accounts (Technician / Manager / Admin) must be created by an Admin
-    // via POST /api/users.
     const user = await User.create({
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
+<<<<<<< HEAD
       role: role || 'User',
+=======
+      role: 'User',
+>>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
       isActive: true
     });
 
-    // Fetch with team info (excluding password)
     const userWithTeam = await User.findByPk(user.id, {
       attributes: { exclude: ['password'] },
-      include: [
-        {
-          model: Team,
-          as: 'team',
-          attributes: ['id', 'name', 'specialization']
-        }
-      ]
+      include: [attachTeam]
     });
 
+<<<<<<< HEAD
     // Generate tokens
     const accessToken = generateAccessToken(user.id, user.email, user.role);
     const refreshToken = generateRefreshToken(user.id);
     
     res.status(201).json({
+=======
+    const tokens = buildTokens(user);
+
+    return res.status(201).json({
+>>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
       success: true,
       message: 'User registered successfully',
+      token: tokens.accessToken,
       data: {
         user: userWithTeam,
-        tokens: {
-          accessToken,
-          refreshToken,
-          expiresIn: process.env.JWT_EXPIRE || '7d'
-        }
+        tokens
       }
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Error registering user',
       error: error.message
@@ -107,12 +114,10 @@ exports.register = async (req, res) => {
   }
 };
 
-// ── Login user ───────────────────────────────────────────────────────────────
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate input
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -120,16 +125,9 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Find user by email (include password for comparison)
     const user = await User.findOne({
       where: { email: email.toLowerCase() },
-      include: [
-        {
-          model: Team,
-          as: 'team',
-          attributes: ['id', 'name', 'specialization']
-        }
-      ]
+      include: [attachTeam]
     });
 
     if (!user) {
@@ -139,7 +137,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check if user is active
     if (!user.isActive) {
       return res.status(403).json({
         success: false,
@@ -147,7 +144,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -155,33 +151,36 @@ exports.login = async (req, res) => {
         message: 'Invalid email or password'
       });
     }
+<<<<<<< HEAD
     
     // Generate tokens
     const accessToken = generateAccessToken(user.id, user.email, user.role);
     const refreshToken = generateRefreshToken(user.id);
     
     // Remove password from response
+=======
+
+>>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
     const userResponse = user.toJSON();
     delete userResponse.password;
 
-    // Sign JWT
-    const token = signToken(user);
+    const tokens = buildTokens(user);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Login successful',
+<<<<<<< HEAD
+=======
+      token: tokens.accessToken,
+>>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
       data: {
         user: userResponse,
-        tokens: {
-          accessToken,
-          refreshToken,
-          expiresIn: process.env.JWT_EXPIRE || '7d'
-        }
+        tokens
       }
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Error logging in',
       error: error.message
@@ -189,7 +188,10 @@ exports.login = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // Refresh token
+=======
+>>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
 exports.refreshToken = async (req, res) => {
   try {
     const { refreshToken } = req.body;
@@ -201,9 +203,7 @@ exports.refreshToken = async (req, res) => {
       });
     }
 
-    // Verify refresh token
     const decoded = verifyRefreshToken(refreshToken);
-
     if (!decoded) {
       return res.status(401).json({
         success: false,
@@ -211,7 +211,6 @@ exports.refreshToken = async (req, res) => {
       });
     }
 
-    // Fetch user
     const user = await User.findByPk(decoded.id, {
       attributes: { exclude: ['password'] }
     });
@@ -223,20 +222,19 @@ exports.refreshToken = async (req, res) => {
       });
     }
 
-    // Generate new access token
-    const newAccessToken = generateAccessToken(user.id, user.email, user.role);
+    const accessToken = generateAccessToken(user.id, user.email, user.role);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Token refreshed successfully',
       data: {
-        accessToken: newAccessToken,
+        accessToken,
         expiresIn: process.env.JWT_EXPIRE || '7d'
       }
     });
   } catch (error) {
     console.error('Token refresh error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Error refreshing token',
       error: error.message
@@ -244,7 +242,6 @@ exports.refreshToken = async (req, res) => {
   }
 };
 
-// Get current user
 exports.getCurrentUser = async (req, res) => {
   try {
     if (!req.user) {
@@ -254,26 +251,19 @@ exports.getCurrentUser = async (req, res) => {
       });
     }
 
-    // Fetch fresh user data with team info
     const user = await User.findByPk(req.user.id, {
       attributes: { exclude: ['password'] },
-      include: [
-        {
-          model: Team,
-          as: 'team',
-          attributes: ['id', 'name', 'specialization']
-        }
-      ]
+      include: [attachTeam]
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Current user fetched successfully',
       data: user
     });
   } catch (error) {
     console.error('Get current user error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Error fetching current user',
       error: error.message
@@ -281,21 +271,18 @@ exports.getCurrentUser = async (req, res) => {
   }
 };
 
-// Logout (optional - for frontend to discard tokens)
 exports.logout = async (req, res) => {
   try {
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Logout successful. Please discard tokens on client side.'
     });
   } catch (error) {
     console.error('Logout error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Error logging out',
       error: error.message
     });
   }
 };
-
-module.exports = exports;

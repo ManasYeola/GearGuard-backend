@@ -19,6 +19,13 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MAX_PORT_RETRIES = 10;
+const isEmailNotificationsEnabled =
+  process.env.EMAIL_NOTIFICATIONS_ENABLED !== 'false' &&
+  !!process.env.SMTP_HOST &&
+  !!process.env.SMTP_PORT &&
+  !!process.env.SMTP_USER &&
+  !!process.env.SMTP_PASS &&
+  !!process.env.EMAIL_FROM;
 
 // Connect to MySQL
 connectDB();
@@ -45,12 +52,22 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     auth: 'Required for most endpoints - Use JWT token in Authorization header',
     endpoints: {
+<<<<<<< HEAD
       auth: '/api/auth (public)',
       teams: '/api/teams (protected)',
       equipment: '/api/equipment (protected)',
       maintenanceRequests: '/api/maintenance-requests (protected)',
       users: '/api/users (protected)',
       notifications: '/api/notifications (protected)'
+=======
+      auth: '/api/auth',
+      teams: '/api/teams',
+      equipment: '/api/equipment',
+      maintenanceRequests: '/api/maintenance-requests',
+      users: '/api/users',
+      dashboard: '/api/dashboard',
+      notifications: '/api/notifications'
+>>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
     }
   });
 });
@@ -90,6 +107,7 @@ const startServer = (port, retriesLeft) => {
     console.log(`\n🚀 GearGuard API running on port ${port}`);
     console.log(`📍 Server: http://localhost:${port}`);
     console.log(`🔒 JWT Auth: enabled`);
+    console.log(`📧 Email notifications: ${isEmailNotificationsEnabled ? 'enabled' : 'disabled (configure SMTP in .env)'}`);
     console.log(`📋 Environment: ${process.env.NODE_ENV || 'development'}\n`);
   });
 

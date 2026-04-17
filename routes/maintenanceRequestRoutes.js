@@ -1,5 +1,10 @@
 const express = require('express');
 const router = express.Router();
+<<<<<<< HEAD
+=======
+const ctrl = require('../controllers/maintenanceRequestController');
+
+>>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
 const maintenanceRequestController = require('../controllers/maintenanceRequestController');
 const { authorizeRole } = require('../middleware/jwt');
 
@@ -21,12 +26,13 @@ router.put('/:id', maintenanceRequestController.updateRequest);
 router.patch('/:id/start-work', authorizeRole('Technician', 'Admin'), maintenanceRequestController.startWork);
 router.patch('/:id/complete', authorizeRole('Technician', 'Admin'), maintenanceRequestController.completeRequest);
 router.patch('/:id/add-notes', authorizeRole('Technician', 'Admin'), maintenanceRequestController.addWorkNotes);
-router.patch('/:id/stage', maintenanceRequestController.updateStage);
+router.patch('/:id/stage', authorizeRole('Technician', 'Manager', 'Admin'), maintenanceRequestController.updateStage);
 
 // Admin workflow
 router.patch('/:id/assign-technician', authorizeRole('Admin'), maintenanceRequestController.assignTechnician);
 
 // Employee feedback
+router.patch('/:id/verify', authorizeRole('User', 'Admin'), maintenanceRequestController.verifyRequest);
 router.patch('/:id/rate', authorizeRole('User', 'Admin'), maintenanceRequestController.rateService);
 
 // Delete request - admin only
