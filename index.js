@@ -14,13 +14,7 @@ const equipmentRoutes = require('./routes/equipmentRoutes');
 const maintenanceRequestRoutes = require('./routes/maintenanceRequestRoutes');
 const userRoutes = require('./routes/userRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
-<<<<<<< HEAD
-
-// Import auth middleware
-const { protect } = require('./middleware/auth');
-=======
 const notificationRoutes = require('./routes/notificationRoutes');
->>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,31 +23,9 @@ const MAX_PORT_RETRIES = 10;
 // Connect to MySQL
 connectDB();
 
-<<<<<<< HEAD
-// ── Middleware ────────────────────────────────────────────────────────────────
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (Postman, mobile apps, server-to-server)
-    if (!origin) return callback(null, true);
-
-    const isLocalhost =
-      origin.startsWith('http://localhost:') ||
-      origin.startsWith('http://127.0.0.1:');
-
-    const isAllowedProduction =
-      process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL;
-
-    if (isLocalhost || isAllowedProduction) {
-      return callback(null, true);
-    }
-
-    return callback(new Error(`CORS: origin "${origin}" not allowed`));
-  },
-=======
 // Middleware
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
->>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
   credentials: true
 }));
 app.use(express.json());
@@ -73,36 +45,16 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     auth: 'Required for most endpoints - Use JWT token in Authorization header',
     endpoints: {
-<<<<<<< HEAD
-      auth: '/api/auth',
-      teams: '/api/teams',
-      equipment: '/api/equipment',
-      maintenanceRequests: '/api/maintenance-requests',
-      users: '/api/users',
-      dashboard: '/api/dashboard'
-=======
       auth: '/api/auth (public)',
       teams: '/api/teams (protected)',
       equipment: '/api/equipment (protected)',
       maintenanceRequests: '/api/maintenance-requests (protected)',
       users: '/api/users (protected)',
       notifications: '/api/notifications (protected)'
->>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
     }
   });
 });
 
-<<<<<<< HEAD
-// Auth routes — public (login/register do NOT need a token)
-app.use('/api/auth', authRoutes);
-
-// ── Protected Routes (JWT required) ──────────────────────────────────────────
-app.use('/api/teams',                protect, teamRoutes);
-app.use('/api/equipment',            protect, equipmentRoutes);
-app.use('/api/maintenance-requests', protect, maintenanceRequestRoutes);
-app.use('/api/users',                protect, userRoutes);
-app.use('/api/dashboard',            dashboardRoutes); // protect applied inside router
-=======
 // Public routes
 app.use('/api/auth', authRoutes);
 
@@ -113,7 +65,6 @@ app.use('/api/maintenance-requests', authenticateToken, maintenanceRequestRoutes
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/notifications', authenticateToken, notificationRoutes);
->>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
 
 // ── 404 handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {
