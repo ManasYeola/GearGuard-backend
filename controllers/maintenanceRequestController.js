@@ -647,7 +647,6 @@ exports.getStatistics = async (req, res) => {
   }
 };
 
-<<<<<<< HEAD
 // ── Get requests created by the logged-in user ────────────────────────────────
 exports.getMyRequests = async (req, res) => {
   try {
@@ -738,7 +737,6 @@ exports.addNotes = async (req, res) => {
 };
 
 // ── Complete request (assignedTo or Admin/Manager) ────────────────────────────
-=======
 // Assign technician to request (Admin only)
 exports.assignTechnician = async (req, res) => {
   try {
@@ -905,12 +903,10 @@ exports.addWorkNotes = async (req, res) => {
 };
 
 // Complete request (Technician)
->>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
 exports.completeRequest = async (req, res) => {
   try {
     const { actualCost, completionNotes } = req.body;
     const request = await MaintenanceRequest.findByPk(req.params.id);
-<<<<<<< HEAD
     if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
 
     if (['Repaired', 'Scrap'].includes(request.stage)) {
@@ -963,246 +959,11 @@ exports.rateService = async (req, res) => {
     res.status(200).json({ success: true, message: 'Thank you for your feedback!', data: request });
   } catch (error) {
     res.status(400).json({ success: false, message: 'Error rating service', error: error.message });
-=======
-    
-    if (!request) {
-      return res.status(404).json({
-        success: false,
-        message: 'Maintenance request not found'
-      });
-    }
-    
-    if (request.assignedToId !== req.user.id && req.user.role !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not assigned to this request'
-      });
-    }
-    
-    const oldStage = request.stage;
-    request.stage = 'Repaired';
-    request.completedDate = new Date();
-    request.isActive = false;
-    request.rating = null;
-    request.feedback = '';
-    if (actualCost) request.actualCost = actualCost;
-    if (completionNotes) {
-      request.completionNotes = completionNotes;
-      request.workNotes = (request.workNotes || '') + `\n[COMPLETED] ${completionNotes}`;
-    }
-    
-    await request.save();
-
-    await notifyStatusRecipients({
-      request,
-      oldStage,
-      newStage: request.stage,
-    });
-    
-    const completedRequest = await MaintenanceRequest.findByPk(request.id, {
-      include: [
-        {
-          model: Equipment,
-          as: 'equipment',
-          attributes: ['id', 'name', 'serialNumber']
-        },
-        {
-          model: User,
-          as: 'assignedTo',
-          attributes: ['id', 'name', 'email']
-        },
-        {
-          model: User,
-          as: 'createdBy',
-          attributes: ['id', 'name', 'email']
-        }
-      ]
-    });
-
-    if (completedRequest?.createdBy && completedRequest?.assignedTo && completedRequest?.equipment) {
-      notifySafely(
-        () =>
-          NotificationService.notifyRequestCompleted(
-            completedRequest.createdBy,
-            completedRequest.assignedTo,
-            completedRequest,
-            completedRequest.equipment
-          ),
-        'request-completed'
-      );
-    }
-    
-    res.status(200).json({
-      success: true,
-      message: 'Work marked complete and sent for user verification',
-      data: completedRequest
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: 'Error completing request',
-      error: error.message
-    });
   }
 };
 
-// Verify completion and close or reopen request (Requester/Admin)
-exports.verifyRequest = async (req, res) => {
-  try {
-    const { satisfied = true, rating, feedback } = req.body;
-    
-    const request = await MaintenanceRequest.findByPk(req.params.id);
-    
-    if (!request) {
-      return res.status(404).json({
-        success: false,
-        message: 'Maintenance request not found'
-      });
-    }
-
-    if (!isRequesterOrAdmin(request, req.user)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only the requester can verify this maintenance completion'
-      });
-    }
-
-    if (request.stage !== 'Repaired') {
-      return res.status(400).json({
-        success: false,
-        message: 'Request can be verified only after technician marks it as repaired'
-      });
-    }
-
-    const isSatisfied =
-      typeof satisfied === 'string'
-        ? ['true', 'yes', '1'].includes(satisfied.trim().toLowerCase())
-        : Boolean(satisfied);
-
-    const oldStage = request.stage;
-
-    if (!isSatisfied) {
-      const feedbackText = String(feedback || '').trim();
-
-      if (!feedbackText) {
-        return res.status(400).json({
-          success: false,
-          message: 'Feedback is required when marking repair as unsatisfactory'
-        });
-      }
-
-      request.stage = 'In Progress';
-      request.completedDate = null;
-      request.rating = null;
-      request.feedback = feedbackText;
-      request.workNotes =
-        (request.workNotes || '') +
-        `\n[REOPENED_BY_REQUESTER ${new Date().toISOString()}] ${feedbackText}`;
-
-      await request.save();
-
-      const [technician, requester, equipment] = await Promise.all([
-        request.assignedToId
-          ? User.findByPk(request.assignedToId, {
-              attributes: ['id', 'name', 'email', 'isActive'],
-            })
-          : null,
-        request.createdById
-          ? User.findByPk(request.createdById, {
-              attributes: ['id', 'name', 'email', 'isActive'],
-            })
-          : null,
-        Equipment.findByPk(request.equipmentId, {
-          attributes: ['id', 'name', 'serialNumber'],
-        }),
-      ]);
-
-      await notifyStatusRecipients({
-        request,
-        oldStage,
-        newStage: request.stage,
-      });
-
-      if (technician?.isActive) {
-        notifySafely(
-          () =>
-            NotificationService.notifyRequestReopenedByRequester(
-              technician,
-              requester || req.user,
-              request,
-              equipment,
-              feedbackText
-            ),
-          'request-reopened-by-requester'
-        );
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: 'Request reopened and sent back to technician',
-        data: request,
-      });
-    }
-
-    const normalizedRating = Number(rating);
-    if (!Number.isInteger(normalizedRating) || normalizedRating < 1 || normalizedRating > 5) {
-      return res.status(400).json({
-        success: false,
-        message: 'Rating must be an integer between 1 and 5'
-      });
-    }
-    
-    request.rating = normalizedRating;
-    request.feedback = String(feedback || '').trim();
-    await request.save();
-
-    const [technician, requester, equipment] = await Promise.all([
-      request.assignedToId
-        ? User.findByPk(request.assignedToId, {
-            attributes: ['id', 'name', 'email', 'isActive'],
-          })
-        : null,
-      request.createdById
-        ? User.findByPk(request.createdById, {
-            attributes: ['id', 'name', 'email', 'isActive'],
-          })
-        : null,
-      Equipment.findByPk(request.equipmentId, {
-        attributes: ['id', 'name', 'serialNumber'],
-      }),
-    ]);
-
-    if (requester?.isActive) {
-      notifySafely(
-        () =>
-          NotificationService.notifyRequestVerifiedClosed(
-            requester,
-            technician?.isActive ? technician : null,
-            request,
-            equipment,
-            normalizedRating,
-            request.feedback
-          ),
-        'request-verified-closed'
-      );
-    }
-    
-    res.status(200).json({
-      success: true,
-      message: 'Repair verified and request closed successfully',
-      data: request
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: 'Error verifying maintenance completion',
-      error: error.message
-    });
-  }
-};
-
-// Backward-compatible alias for older clients.
-exports.rateService = exports.verifyRequest;
+// Backward-compatible alias for newer routes.
+exports.verifyRequest = exports.rateService;
 
 // Get my requests (for technician or employee)
 exports.getMyRequests = async (req, res) => {
@@ -1248,6 +1009,5 @@ exports.getMyRequests = async (req, res) => {
       message: 'Error fetching requests',
       error: error.message
     });
->>>>>>> 59e99faba3db0079e7c4859002caa138441b8545
   }
 };
