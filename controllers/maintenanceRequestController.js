@@ -1042,8 +1042,95 @@ exports.rateService = async (req, res) => {
   }
 };
 
-// Backward-compatible alias for newer routes.
-exports.verifyRequest = exports.rateService;
+// Verify completion (original requester or Admin)
+// If satisfied=false, request is reopened for rework.
+exports.verifyRequest = async (req, res) => {
+  try {
+    const { satisfied, rating, feedback } = req.body;
+    const request = await MaintenanceRequest.findByPk(req.params.id);
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+
+    if (!isRequesterOrAdmin(request, req.user)) {
+      return res.status(403).json({ success: false, message: 'Only the original requester can verify this service' });
+    }
+
+    if (request.stage !== 'Repaired') {
+      return res.status(400).json({ success: false, message: 'Only completed (Repaired) requests can be verified' });
+    }
+
+    const isSatisfied =
+      satisfied === true ||
+      satisfied === 'true' ||
+      satisfied === 'yes' ||
+      satisfied === 1 ||
+      satisfied === '1';
+
+    const oldStage = request.stage;
+
+    if (isSatisfied) {
+      const parsedRating = Number(rating);
+      if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+        return res.status(400).json({ success: false, message: 'Rating must be an integer between 1 and 5' });
+      }
+
+      request.rating = parsedRating;
+      request.feedback = feedback ? feedback.trim() : null;
+      await request.save();
+
+      const updatedClosedRequest = await MaintenanceRequest.findByPk(request.id, {
+        include: [
+          { model: Equipment, as: 'equipment', attributes: ['id', 'name', 'serialNumber', 'category', 'location'] },
+          { model: Team, as: 'maintenanceTeam', attributes: ['id', 'name', 'specialization'] },
+          { model: User, as: 'assignedTo', attributes: ['id', 'name', 'email', 'avatar'] },
+          { model: User, as: 'createdBy', attributes: ['id', 'name', 'email'] }
+        ]
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Thank you for your feedback!',
+        data: updatedClosedRequest
+      });
+    }
+
+    const trimmedFeedback = feedback ? feedback.trim() : '';
+    if (!trimmedFeedback) {
+      return res.status(400).json({
+        success: false,
+        message: 'Feedback is required when reopening a request'
+      });
+    }
+
+    request.stage = 'In Progress';
+    request.completedDate = null;
+    request.rating = null;
+    request.feedback = trimmedFeedback;
+    await request.save();
+
+    await notifyStatusRecipients({
+      request,
+      oldStage,
+      newStage: request.stage,
+    });
+
+    const updatedReopenedRequest = await MaintenanceRequest.findByPk(request.id, {
+      include: [
+        { model: Equipment, as: 'equipment', attributes: ['id', 'name', 'serialNumber', 'category', 'location'] },
+        { model: Team, as: 'maintenanceTeam', attributes: ['id', 'name', 'specialization'] },
+        { model: User, as: 'assignedTo', attributes: ['id', 'name', 'email', 'avatar'] },
+        { model: User, as: 'createdBy', attributes: ['id', 'name', 'email'] }
+      ]
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Request reopened and sent back for rework.',
+      data: updatedReopenedRequest
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: 'Error verifying service', error: error.message });
+  }
+};
 
 // Get my requests (for technician or employee)
 exports.getMyRequests = async (req, res) => {

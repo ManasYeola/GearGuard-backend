@@ -72,6 +72,15 @@ app.get('/', (req, res) => {
   });
 });
 
+// Lightweight health endpoint used by automated keep-alive jobs.
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Public routes
 app.use('/api/auth', authRoutes);
 
