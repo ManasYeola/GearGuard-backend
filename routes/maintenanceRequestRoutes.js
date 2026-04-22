@@ -1,10 +1,7 @@
 const express = require('express');
 const router = express.Router();
-<<<<<<< HEAD
-=======
 const ctrl = require('../controllers/maintenanceRequestController');
 
->>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
 const maintenanceRequestController = require('../controllers/maintenanceRequestController');
 const { authorizeRole } = require('../middleware/jwt');
 

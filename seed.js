@@ -47,7 +47,7 @@ const seedData = async () => {
         name: 'John Doe',
         email: 'john@example.com',
         password: defaultPassword,
-        role: 'Manager',
+        role: 'admin',
         teamId: teams[0].id
       },
       {

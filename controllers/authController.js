@@ -32,13 +32,7 @@ exports.register = async (req, res) => {
       });
     }
 
-<<<<<<< HEAD
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-=======
     if (!EMAIL_REGEX.test(email)) {
->>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
       return res.status(400).json({
         success: false,
         message: 'Invalid email format'
@@ -51,12 +45,6 @@ exports.register = async (req, res) => {
         message: 'Password must be at least 8 characters long'
       });
     }
-<<<<<<< HEAD
-    
-    // Check if user already exists
-=======
-
->>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
     const existingUser = await User.findOne({ where: { email: email.toLowerCase() } });
     if (existingUser) {
       return res.status(400).json({
@@ -72,11 +60,7 @@ exports.register = async (req, res) => {
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
-<<<<<<< HEAD
-      role: role || 'User',
-=======
       role: 'User',
->>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
       isActive: true
     });
 
@@ -85,17 +69,9 @@ exports.register = async (req, res) => {
       include: [attachTeam]
     });
 
-<<<<<<< HEAD
-    // Generate tokens
-    const accessToken = generateAccessToken(user.id, user.email, user.role);
-    const refreshToken = generateRefreshToken(user.id);
-    
-    res.status(201).json({
-=======
     const tokens = buildTokens(user);
 
     return res.status(201).json({
->>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
       success: true,
       message: 'User registered successfully',
       token: tokens.accessToken,
@@ -151,16 +127,6 @@ exports.login = async (req, res) => {
         message: 'Invalid email or password'
       });
     }
-<<<<<<< HEAD
-    
-    // Generate tokens
-    const accessToken = generateAccessToken(user.id, user.email, user.role);
-    const refreshToken = generateRefreshToken(user.id);
-    
-    // Remove password from response
-=======
-
->>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
     const userResponse = user.toJSON();
     delete userResponse.password;
 
@@ -169,10 +135,7 @@ exports.login = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Login successful',
-<<<<<<< HEAD
-=======
       token: tokens.accessToken,
->>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
       data: {
         user: userResponse,
         tokens
@@ -188,10 +151,6 @@ exports.login = async (req, res) => {
   }
 };
 
-<<<<<<< HEAD
-// Refresh token
-=======
->>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
 exports.refreshToken = async (req, res) => {
   try {
     const { refreshToken } = req.body;

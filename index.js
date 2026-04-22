@@ -52,14 +52,6 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     auth: 'Required for most endpoints - Use JWT token in Authorization header',
     endpoints: {
-<<<<<<< HEAD
-      auth: '/api/auth (public)',
-      teams: '/api/teams (protected)',
-      equipment: '/api/equipment (protected)',
-      maintenanceRequests: '/api/maintenance-requests (protected)',
-      users: '/api/users (protected)',
-      notifications: '/api/notifications (protected)'
-=======
       auth: '/api/auth',
       teams: '/api/teams',
       equipment: '/api/equipment',
@@ -67,7 +59,6 @@ app.get('/', (req, res) => {
       users: '/api/users',
       dashboard: '/api/dashboard',
       notifications: '/api/notifications'
->>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
     }
   });
 });

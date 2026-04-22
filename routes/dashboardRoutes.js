@@ -12,10 +12,6 @@ router.get('/technician', authorizeRole('Admin', 'Manager', 'Technician'), dashb
 // Employee (User) — requests they submitted
 router.get('/employee', authorizeRole('Admin', 'Manager', 'Technician', 'User'), dashboardController.getEmployeeDashboard);
 
-<<<<<<< HEAD
-// Team performance (accessible to admin and technicians)
-router.get('/team-performance', authorizeRole('Admin', 'Technician'), dashboardController.getTeamPerformance);
-=======
 // Team performance breakdown — admin / manager
 router.get('/team-performance', authorizeRole('Admin', 'Manager'), dashboardController.getTeamPerformance);
 
@@ -23,6 +19,5 @@ router.get('/team-performance', authorizeRole('Admin', 'Manager'), dashboardCont
 router.get('/report', authorizeRole('Admin', 'Manager', 'Technician', 'User'), dashboardController.getRoleBasedReport);
 router.get('/report/export', authorizeRole('Admin', 'Manager'), dashboardController.exportRoleBasedReport);
 router.get('/equipment-analysis', authorizeRole('Admin', 'Manager', 'Technician', 'User'), dashboardController.getEquipmentAnalysis);
->>>>>>> ecd870dda7192b8c064908dfab3f0b487fd8d5f2
 
 module.exports = router;
