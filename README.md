@@ -1,75 +1,83 @@
 # GearGuard API
 
-> Complete backend for maintenance management system - Track equipment, teams, and maintenance workflows.
+Backend for the GearGuard maintenance management system.
 
-## 🎯 Overview
+## Stack
 
-RESTful API for managing company assets and maintenance operations with smart automation features.
+- Node.js
+- Express
+- MySQL
+- Sequelize
+- JWT authentication
 
-**Tech Stack**: Node.js • Express • MongoDB • Mongoose
+## Run
 
-## ✨ Key Features
-
-- **Auto-fill Logic** - Equipment selection populates category & team automatically
-- **Smart Buttons** - Equipment shows related maintenance request counts
-- **Kanban Board** - Drag-drop workflow (New → In Progress → Repaired → Scrap)
-- **Calendar View** - Schedule preventive maintenance
-- **Scrap Logic** - Auto-flags equipment when marked as scrap
-
-## 🚀 Quick Start
+Install dependencies:
 
 ```bash
-# Install dependencies
 npm install
+```
 
-# Setup environment
-cp .env.example .env
-# Edit .env with your MongoDB URI
+Start in development:
 
-# Seed sample data (optional)
-npm run seed
-
-# Start server
+```bash
 npm run dev
 ```
 
-**Server runs at**: `http://localhost:5000`
+Start in production:
 
-## 📡 API Endpoints
-
-```
-/api/teams                          # Team management
-/api/users                          # User management
-/api/equipment                      # Equipment tracking
-  ├─ /grouped?groupBy=department    # Group by dept/employee
-  └─ /:id/maintenance-requests      # Smart button data
-/api/maintenance-requests           # CRUD operations
-  ├─ /kanban                        # Kanban view
-  ├─ /calendar                      # Calendar view
-  └─ /statistics                    # Dashboard reports
+```bash
+npm start
 ```
 
-**Full documentation**: See [POSTMAN-GUIDE.md](POSTMAN-GUIDE.md) or import `GearGuard-Postman-Collection.json`
+Default API URL: `http://localhost:5000`
 
-## 🗄️ Core Models
+## Environment
 
-- **Team** - Maintenance teams with specializations
-- **User** - Technicians, managers, admins
-- **Equipment** - Assets with ownership (department/employee)
-- **Maintenance Request** - Work orders with lifecycle tracking
+Create `.env` in this folder with values like:
 
-## 🔄 Workflow
+```env
+PORT=5000
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=gearguard
+DB_USER=root
+DB_PASSWORD=your_password
+NODE_ENV=development
+JWT_SECRET=your_access_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+JWT_EXPIRE=7d
+CORS_ORIGIN=http://localhost:3000
+FRONTEND_URL=http://localhost:3000
+```
 
-**Corrective** (Emergency): Create → Auto-assign team → In Progress → Repaired  
-**Preventive** (Scheduled): Schedule → Calendar view → Execute → Complete
+## Database
 
-## 📚 Documentation
+- The backend connects to MySQL through Sequelize.
+- Tables are synced automatically on startup.
+- Sample data can be loaded with:
 
-- [QUICKSTART.md](QUICKSTART.md) - Detailed setup & workflows
-- [POSTMAN-GUIDE.md](POSTMAN-GUIDE.md) - API testing guide
-- [MONGODB-SETUP.md](MONGODB-SETUP.md) - Database setup
-- [PROJECT-STRUCTURE.md](PROJECT-STRUCTURE.md) - Code structure
+```bash
+npm run seed
+```
 
-## 📝 License
+## Main Endpoints
 
-ISC
+```text
+/api/auth
+/api/teams
+/api/users
+/api/equipment
+/api/maintenance-requests
+/api/dashboard
+/api/notifications
+```
+
+## Useful Files
+
+- `package.json`
+- `index.js`
+- `seed.js`
+- `PROJECT-STRUCTURE.md`
+- `JWT-AUTHENTICATION.md`
+- `GearGuard-Postman-Collection.json`

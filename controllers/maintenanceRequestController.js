@@ -2,6 +2,7 @@ const { MaintenanceRequest, Equipment, Team, User } = require('../models');
 const { Op, fn, col } = require('sequelize');
 const { sequelize } = require('../config/database');
 const NotificationService = require('../services/notificationService');
+const VALID_STAGES = new Set(['New', 'In Progress', 'Repaired', 'Scrap']);
 
 const normalizeRequestType = (value) => {
   const normalized = String(value || '').trim().toLowerCase();
@@ -332,6 +333,13 @@ exports.updateRequest = async (req, res) => {
 exports.updateStage = async (req, res) => {
   try {
     const { stage } = req.body;
+    if (!VALID_STAGES.has(stage)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid stage. Allowed values: ${Array.from(VALID_STAGES).join(', ')}`
+      });
+    }
+
     const request = await MaintenanceRequest.findByPk(req.params.id);
     
     if (!request) {
@@ -963,7 +971,136 @@ exports.rateService = async (req, res) => {
 };
 
 // Backward-compatible alias for newer routes.
-exports.verifyRequest = exports.rateService;
+exports.verifyRequest = async (req, res) => {
+  try {
+    const { satisfied, rating, feedback } = req.body;
+
+    const request = await MaintenanceRequest.findByPk(req.params.id, {
+      include: [
+        {
+          model: Equipment,
+          as: 'equipment',
+          attributes: ['id', 'name', 'serialNumber', 'category', 'location']
+        },
+        {
+          model: User,
+          as: 'assignedTo',
+          attributes: ['id', 'name', 'email', 'avatar']
+        },
+        {
+          model: User,
+          as: 'createdBy',
+          attributes: ['id', 'name', 'email']
+        }
+      ]
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Maintenance request not found'
+      });
+    }
+
+    if (req.user.role !== 'Admin' && request.createdById !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the original requester can verify this request'
+      });
+    }
+
+    if (request.stage !== 'Repaired') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only repaired requests can be verified'
+      });
+    }
+
+    const requesterFeedback = feedback ? String(feedback).trim() : '';
+    const isSatisfied = satisfied === true || satisfied === 'true';
+
+    if (isSatisfied) {
+      const numericRating = Number(rating);
+      if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+        return res.status(400).json({
+          success: false,
+          message: 'Rating must be an integer between 1 and 5 when closing a request'
+        });
+      }
+
+      request.rating = numericRating;
+      request.feedback = requesterFeedback || null;
+      await request.save();
+
+      if (request.assignedTo && request.equipment) {
+        notifySafely(
+          () =>
+            NotificationService.notifyRequestVerifiedClosed(
+              request.createdBy || req.user,
+              request.assignedTo,
+              request,
+              request.equipment,
+              numericRating,
+              requesterFeedback
+            ),
+          'request-verified-closed'
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Request verified and closed successfully',
+        data: request
+      });
+    }
+
+    if (!requesterFeedback) {
+      return res.status(400).json({
+        success: false,
+        message: 'Feedback is required when reopening a request'
+      });
+    }
+
+    const oldStage = request.stage;
+    request.stage = 'In Progress';
+    request.completedDate = null;
+    request.rating = null;
+    request.feedback = requesterFeedback;
+    await request.save();
+
+    await notifyStatusRecipients({
+      request,
+      oldStage,
+      newStage: request.stage,
+    });
+
+    if (request.assignedTo && request.equipment) {
+      notifySafely(
+        () =>
+          NotificationService.notifyRequestReopenedByRequester(
+            request.assignedTo,
+            request.createdBy || req.user,
+            request,
+            request.equipment,
+            requesterFeedback
+          ),
+        'request-reopened-by-requester'
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Request reopened for rework',
+      data: request
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: 'Error verifying request',
+      error: error.message
+    });
+  }
+};
 
 // Get my requests (for technician or employee)
 exports.getMyRequests = async (req, res) => {
